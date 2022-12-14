@@ -69,9 +69,11 @@ typedef struct {
 
 
 typedef struct {
-    int   id;
-    void *data;
-    void *extra;
+    int     id;
+    void   *data;
+    void   *extra;
+    void   *subscription_handle;
+    uint8_t is_open;
 
     // Called when the page is first created; it initializes and returns the data structures used by the page
     void *(*create)(lv_pman_page_handle_t page, void *args, void *extra);
