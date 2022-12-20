@@ -6,9 +6,6 @@
 #include "lvgl.h"
 
 
-typedef void *lv_pman_page_handle_t;
-
-
 typedef enum {
     LV_PMAN_VIEW_MSG_TAG_NOTHING = 0,
     LV_PMAN_VIEW_MSG_TAG_BACK,
@@ -48,9 +45,8 @@ typedef enum {
 
 
 typedef struct {
-    int                   id;
-    int                   number;
-    lv_pman_page_handle_t handle;
+    int id;
+    int number;
 } lv_pman_obj_data_t;
 
 
@@ -76,17 +72,17 @@ typedef struct {
     uint8_t is_open;
 
     // Called when the page is first created; it initializes and returns the data structures used by the page
-    void *(*create)(lv_pman_page_handle_t page, void *args, void *extra);
+    void *(*create)(void *args, void *extra);
     // Called when the page definitively exits the scenes; should free all used memory
     void (*destroy)(void *data, void *extra);
 
     // Called when the page enters view
-    void (*open)(lv_pman_page_handle_t page, void *args, void *data);
+    void (*open)(void *args, void *data);
     // Called when the page exits view
     void (*close)(void *data);
 
     // Called to process an event
-    lv_pman_msg_t (*process_event)(lv_pman_page_handle_t page, void *args, void *data, lv_pman_event_t event);
+    lv_pman_msg_t (*process_event)(void *args, void *data, lv_pman_event_t event);
 } lv_pman_page_t;
 
 
