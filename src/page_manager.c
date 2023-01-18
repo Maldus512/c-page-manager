@@ -3,31 +3,30 @@
 #include "stack.h"
 
 
-#define PTR_TO_U32(x) ((uint32_t)(uintptr_t)x)
-
-#define TODO_REMOVE_THIS 0xABBA
-
-
 static void clear_page_stack(lv_pman_t *pman);
 static void wait_release(lv_pman_t *pman);
 static void reset_page(lv_pman_t *pman);
 static void free_user_data_callback(lv_event_t *event);
-static void page_subscription_cb(void *s, lv_msg_t *msg);
-static void controller_subscription_cb(void *s, lv_msg_t *lv_msg);
+static void page_subscription_cb(lv_pman_t *pman, lv_pman_event_t event);
 static void event_callback(lv_event_t *event);
-static void open_page(lv_pman_page_t *page, void *args);
+static void open_page(lv_pman_handle_t handle, lv_pman_page_t *page, void *args);
 static void close_page(lv_pman_page_t *page);
 static void destroy_page(lv_pman_page_t *page);
 
 
+/**
+ * @brief Initialize the page manager instance
+ *
+ * @param pman Pointer to the page manager instance
+ * @param args user pointer
+ * @param indev optional input device reference
+ * @param controller_cb function to handle controller messages
+ */
 void lv_pman_init(lv_pman_t *pman, void *args, lv_indev_t *indev,
                   void (*controller_cb)(void *, lv_pman_controller_msg_t)) {
     pman->touch_indev   = indev;
     pman->args          = args;
     pman->controller_cb = controller_cb;
-
-    lv_msg_subsribe(LV_PMAN_CONTROLLER_MSG_ID, controller_subscription_cb, pman);
-    lv_msg_subsribe(TODO_REMOVE_THIS, page_subscription_cb, pman);
 
     lv_pman_page_stack_init(&pman->page_stack);
 }
@@ -38,6 +37,15 @@ void lv_pman_init(lv_pman_t *pman, void *args, lv_indev_t *indev,
  */
 
 
+/**
+ * @brief Swap the current page with another one, passing also the extra argument. The current page is closed and
+ * destroyed and the new page takes its place on top of the stack
+ *
+ * @param pman
+ * @param args
+ * @param newpage
+ * @param extra
+ */
 void lv_pman_swap_page_extra(lv_pman_t *pman, void *args, lv_pman_page_t newpage, void *extra) {
     lv_pman_page_t *current = lv_pman_page_stack_top(&pman->page_stack);
     assert(current != NULL);
@@ -53,22 +61,40 @@ void lv_pman_swap_page_extra(lv_pman_t *pman, void *args, lv_pman_page_t newpage
     current->extra = extra;
     // Create the newpage
     if (current->create) {
-        current->data = current->create(args, current->extra);
+        current->state = current->create(args, current->extra);
     } else {
-        current->data = NULL;
+        current->state = NULL;
     }
 
-    open_page(current, args);
+    open_page(pman, current, args);
     reset_page(pman);
 }
 
 
+/**
+ * @brief Swap the current page with another one. The current page is closed and
+ * destroyed and the new page takes its place on top of the stack
+ *
+ * @param pman
+ * @param args
+ * @param newpage
+ * @param extra
+ */
 void lv_pman_swap_page(lv_pman_t *pman, void *args, lv_pman_page_t newpage) {
     lv_pman_swap_page_extra(pman, args, newpage, NULL);
 }
 
 
-void lv_pman_reset_to_page(lv_pman_t *pman, void *args, int id, uint8_t *found) {
+/**
+ * @brief Reset the page stack to the highest instance of page with the corresponding id. All pages until the target are
+ * closed and destroyed. If no such page is found, clears the whole stack.
+ *
+ * @param pman
+ * @param args
+ * @param id
+ * @param found whether the target page was found or not
+ */
+void lv_pman_reset_to_page_id(lv_pman_t *pman, void *args, int id, uint8_t *found) {
     if (found) {
         *found = 0;
     }
@@ -84,7 +110,7 @@ void lv_pman_reset_to_page(lv_pman_t *pman, void *args, int id, uint8_t *found) 
                 *found = 1;
             }
 
-            open_page(current, args);
+            open_page(pman, current, args);
             reset_page(pman);
             break;
         } else {
@@ -96,8 +122,16 @@ void lv_pman_reset_to_page(lv_pman_t *pman, void *args, int id, uint8_t *found) 
 }
 
 
+/**
+ * @brief Clears the whole stack and adds a new page, passing also the extra argument. All previous pages are closed and
+ * destroyed
+ *
+ * @param pman
+ * @param args
+ * @param newpage
+ * @param extra
+ */
 void lv_pman_rebase_page_extra(lv_pman_t *pman, void *args, lv_pman_page_t newpage, void *extra) {
-    // TODO: this probably doesn't work
     lv_pman_page_t *current = lv_pman_page_stack_top(&pman->page_stack);
     assert(current != NULL);
 
@@ -112,22 +146,39 @@ void lv_pman_rebase_page_extra(lv_pman_t *pman, void *args, lv_pman_page_t newpa
     current->extra = extra;
     // Create the newpage
     if (current->create) {
-        current->data = current->create(args, current->extra);
+        current->state = current->create(args, current->extra);
     } else {
-        current->data = NULL;
+        current->state = NULL;
     }
 
     // Open the page
-    open_page(current, args);
+    open_page(pman, current, args);
     reset_page(pman);
 }
 
 
+/**
+ * @brief Clears the whole stack and adds a new page. All previous pages are closed and
+ * destroyed
+ *
+ * @param pman
+ * @param args
+ * @param newpage
+ */
 void lv_pman_rebase_page(lv_pman_t *pman, void *args, lv_pman_page_t newpage) {
     lv_pman_rebase_page_extra(pman, args, newpage, NULL);
 }
 
 
+/**
+ * @brief Changes the current page passing also the extra argument, adding it on top of the stack. The previous page is
+ * closed.
+ *
+ * @param pman
+ * @param args
+ * @param newpage
+ * @param extra
+ */
 void lv_pman_change_page_extra(lv_pman_t *pman, void *args, lv_pman_page_t newpage, void *extra) {
     lv_pman_page_t *current = lv_pman_page_stack_top(&pman->page_stack);
     if (current != NULL) {
@@ -141,17 +192,25 @@ void lv_pman_change_page_extra(lv_pman_t *pman, void *args, lv_pman_page_t newpa
 
     // Create the newpage
     if (current->create) {
-        current->data = current->create(args, extra);
+        current->state = current->create(args, extra);
     } else {
-        current->data = NULL;
+        current->state = NULL;
     }
 
     // Open the page
-    open_page(current, args);
+    open_page(pman, current, args);
     reset_page(pman);
 }
 
 
+/**
+ * @brief Changes the current page, adding it on top of the stack. The previous page is
+ * closed.
+ *
+ * @param pman
+ * @param args
+ * @param newpage
+ */
 void lv_pman_change_page(lv_pman_t *pman, void *args, lv_pman_page_t page) {
     lv_pman_change_page_extra(pman, args, page, NULL);
 }
@@ -167,7 +226,7 @@ void lv_pman_back(lv_pman_t *pman, void *args) {
         lv_pman_page_t *current = lv_pman_page_stack_top(&pman->page_stack);
         assert(current != NULL);
 
-        open_page(current, args);
+        open_page(pman, current, args);
         reset_page(pman);
     }
 }
@@ -178,11 +237,19 @@ void lv_pman_back(lv_pman_t *pman, void *args) {
  */
 
 
+/**
+ * @brief Processes an event, sending it to the current page and returning a message from the page to the system.
+ *
+ * @param pman
+ * @param args
+ * @param event
+ * @return lv_pman_controller_msg_t
+ */
 lv_pman_controller_msg_t lv_pman_process_page_event(lv_pman_t *pman, void *args, lv_pman_event_t event) {
     lv_pman_page_t *current = lv_pman_page_stack_top(&pman->page_stack);
     assert(current != NULL);
 
-    lv_pman_msg_t msg = current->process_event(args, current->data, event);
+    lv_pman_msg_t msg = current->process_event(args, current->state, event);
 
     switch (msg.vmsg.tag) {
         case LV_PMAN_VIEW_MSG_TAG_CHANGE_PAGE:
@@ -210,7 +277,7 @@ lv_pman_controller_msg_t lv_pman_process_page_event(lv_pman_t *pman, void *args,
             break;
 
         case LV_PMAN_VIEW_MSG_TAG_RESET_TO:
-            lv_pman_reset_to_page(pman, args, msg.vmsg.id, NULL);
+            lv_pman_reset_to_page_id(pman, args, msg.vmsg.id, NULL);
             break;
 
         case LV_PMAN_VIEW_MSG_TAG_NOTHING:
@@ -221,7 +288,16 @@ lv_pman_controller_msg_t lv_pman_process_page_event(lv_pman_t *pman, void *args,
 }
 
 
-void lv_pman_register_obj_id_and_number(lv_obj_t *obj, int id, int number) {
+/**
+ * @brief Register an lvgl object in the default event management system. Events sent by the objects will be forwarded
+ * to the page. It includes an ID code and a number.
+ *
+ * @param handle Handle for event management, passed to page callbacks
+ * @param obj
+ * @param id
+ * @param number
+ */
+void lv_pman_register_obj_id_and_number(lv_pman_handle_t handle, lv_obj_t *obj, int id, int number) {
     lv_pman_obj_data_t *data = lv_obj_get_user_data(obj);
     if (data == NULL) {
         data = lv_mem_alloc(sizeof(lv_pman_obj_data_t));
@@ -229,6 +305,8 @@ void lv_pman_register_obj_id_and_number(lv_obj_t *obj, int id, int number) {
     }
     data->id     = id;
     data->number = number;
+    data->handle = handle;
+
     lv_obj_set_user_data(obj, data);
     lv_obj_remove_event_cb(obj, free_user_data_callback);
     lv_obj_remove_event_cb(obj, event_callback);
@@ -245,27 +323,51 @@ void lv_pman_register_obj_id_and_number(lv_obj_t *obj, int id, int number) {
 }
 
 
-void lv_pman_register_obj_id(lv_obj_t *obj, int id) {
-    lv_pman_register_obj_id_and_number(obj, id, 0);
+/**
+ * @brief Register an lvgl object in the default event management system. Events sent by the objects will be forwarded
+ * to the page.
+ *
+ * @param handle Handle for event management, passed to page callbacks
+ * @param obj
+ * @param id
+ */
+void lv_pman_register_obj_id(lv_pman_handle_t handle, lv_obj_t *obj, int id) {
+    lv_pman_register_obj_id_and_number(handle, obj, id, 0);
 }
 
 
+/**
+ * @brief Send an event to the current page
+ *
+ * @param pman
+ * @param event
+ */
 void lv_pman_event(lv_pman_t *pman, lv_pman_event_t event) {
-    (void)pman;
-    // TODO: fix events
-    // lv_msg_send(PTR_TO_U32(lv_pman_page_stack_top(&pman->page_stack)), &event);
-    lv_msg_send(TODO_REMOVE_THIS, &event);
+    page_subscription_cb(pman, event);
 }
 
 
-void lv_pman_destroy_all(void *data, void *extra) {
+/**
+ * @brief Utility function to be assigned to the "destroy" page callback. It clears all page state (attempting to free
+ * it)
+ *
+ * @param state
+ * @param extra
+ */
+void lv_pman_destroy_all(void *state, void *extra) {
     (void)extra;
-    lv_mem_free(data);
+    lv_mem_free(state);
 }
 
 
-void lv_pman_close_all(void *data) {
-    (void)data;
+/**
+ * @brief Utility function to be assigned to the "close" page callback. It clears all LVGL objects on screen.
+ *
+ * @param state
+ * @param extra
+ */
+void lv_pman_close_all(void *state) {
+    (void)state;
     lv_obj_clean(lv_scr_act());
 }
 
@@ -275,17 +377,25 @@ void lv_pman_close_all(void *data) {
  */
 
 
+/**
+ * @brief Open a page that finds itself on top of the stack
+ *
+ * @param pman
+ */
 static void reset_page(lv_pman_t *pman) {
     lv_pman_page_t *current = lv_pman_page_stack_top(&pman->page_stack);
     assert(current != NULL);
-
-    // current->subscription_handle = lv_msg_subsribe(PTR_TO_U32(current), page_subscription_cb, pman);
 
     lv_pman_event(pman, (lv_pman_event_t){.tag = LV_PMAN_EVENT_TAG_OPEN});
     wait_release(pman);
 }
 
 
+/**
+ * @brief Clears the whole page stack, assuming all pages have already been closed
+ *
+ * @param pman
+ */
 static void clear_page_stack(lv_pman_t *pman) {
     lv_pman_page_t page;
 
@@ -295,6 +405,11 @@ static void clear_page_stack(lv_pman_t *pman) {
 }
 
 
+/**
+ * @brief Signal the input device to wait for realease before sending new events
+ *
+ * @param pman
+ */
 static void wait_release(lv_pman_t *pman) {
     if (pman->touch_indev != NULL) {
         lv_indev_wait_release(pman->touch_indev);
@@ -302,6 +417,11 @@ static void wait_release(lv_pman_t *pman) {
 }
 
 
+/**
+ * @brief Callback that frees the user data associated with an object. To be tied to the LV_EVENT_DELETE event.
+ *
+ * @param event
+ */
 static void free_user_data_callback(lv_event_t *event) {
     if (lv_event_get_code(event) == LV_EVENT_DELETE) {
         lv_obj_t           *obj  = lv_event_get_current_target(event);
@@ -311,26 +431,23 @@ static void free_user_data_callback(lv_event_t *event) {
 }
 
 
-static void page_subscription_cb(void *s, lv_msg_t *lv_msg) {
-    (void)s;
-    const lv_pman_event_t *event = lv_msg_get_payload(lv_msg);
-    lv_pman_t             *pman  = lv_msg_get_user_data(lv_msg);
-
-    lv_pman_controller_msg_t cmsg = lv_pman_process_page_event(pman, pman->args, *event);
-
-    lv_msg_send(LV_PMAN_CONTROLLER_MSG_ID, &cmsg);
+/**
+ * @brief Page subscription to events
+ * 
+ * @param pman 
+ * @param event 
+ */
+static void page_subscription_cb(lv_pman_t *pman, lv_pman_event_t event) {
+    lv_pman_controller_msg_t cmsg = lv_pman_process_page_event(pman, pman->args, event);
+    pman->controller_cb(pman->args, cmsg);
 }
 
 
-static void controller_subscription_cb(void *s, lv_msg_t *lv_msg) {
-    (void)s;
-    const lv_pman_controller_msg_t *cmsg = lv_msg_get_payload(lv_msg);
-    lv_pman_t                      *pman = lv_msg_get_user_data(lv_msg);
-
-    pman->controller_cb(pman->args, *cmsg);
-}
-
-
+/**
+ * @brief LVGL events callback
+ * 
+ * @param event 
+ */
 static void event_callback(lv_event_t *event) {
     lv_obj_t *target = lv_event_get_current_target(event);
 
@@ -346,32 +463,43 @@ static void event_callback(lv_event_t *event) {
             },
     };
 
-    // lv_msg_send(PTR_TO_U32(data->handle), &pman_event);
-    lv_msg_send(TODO_REMOVE_THIS, &pman_event);
+    page_subscription_cb(data->handle, pman_event);
 }
 
 
+/**
+ * @brief Destroys a page
+ * 
+ * @param page 
+ */
 static void destroy_page(lv_pman_page_t *page) {
     if (page->destroy) {
-        page->destroy(page->data, page->extra);
+        page->destroy(page->state, page->extra);
     }
-
-    // TODO: there is an issue with unsubscribing from events during event handling
-    // lv_msg_unsubscribe(page->subscription_handle);
 }
 
 
-static void open_page(lv_pman_page_t *page, void *args) {
+/**
+ * @brief Opens a page
+ * 
+ * @param handle 
+ * @param page 
+ * @param args 
+ */
+static void open_page(lv_pman_handle_t handle, lv_pman_page_t *page, void *args) {
     if (page->open) {
-        page->open(args, page->data);
+        page->open(handle, args, page->state);
     }
-    page->is_open = 1;
 }
 
 
+/**
+ * @brief Closes a page
+ * 
+ * @param page 
+ */
 static void close_page(lv_pman_page_t *page) {
     if (page->close) {
-        page->close(page->data);
+        page->close(page->state);
     }
-    page->is_open = 0;
 }

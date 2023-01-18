@@ -7,29 +7,40 @@
 #include "stack.h"
 
 
+/**
+ * @brief Page manager structure
+ *
+ */
 typedef struct {
+    // Page stack
     lv_pman_page_stack_t page_stack;
-    lv_indev_t          *touch_indev;
+
+    // Reference to the touch input device; used to reset the touch state when changing page
+    lv_indev_t *touch_indev;
+
+    // Callback to process controller messages (i.e. system commands)
     void (*controller_cb)(void *, lv_pman_controller_msg_t);
+
+    // User pointer
     void *args;
 } lv_pman_t;
 
 
-void    lv_pman_init(lv_pman_t *pman, void *args, lv_indev_t *indev,
-                     void (*controller_cb)(void *, lv_pman_controller_msg_t));
-void    lv_pman_change_page(lv_pman_t *pman, void *args, lv_pman_page_t page);
-void    lv_pman_change_page_extra(lv_pman_t *pman, void *args, lv_pman_page_t newpage, void *extra);
-void    lv_pman_back(lv_pman_t *pman, void *args);
-void    lv_pman_rebase_page(lv_pman_t *pman, void *args, lv_pman_page_t newpage);
-void    lv_pman_rebase_page_extra(lv_pman_t *pman, void *args, lv_pman_page_t newpage, void *extra);
-void    lv_pman_swap_page(lv_pman_t *pman, void *args, lv_pman_page_t newpage);
-void    lv_pman_swap_page_extra(lv_pman_t *pman, void *args, lv_pman_page_t newpage, void *extra);
-void    lv_pman_reset_to_page(lv_pman_t *pman, void *args, int id, uint8_t *found);
-void    lv_pman_event(lv_pman_t *pman, lv_pman_event_t event);
-void    lv_pman_register_obj_id(lv_obj_t *obj, int id);
-void    lv_pman_register_obj_id_and_number(lv_obj_t *obj, int id, int number);
-void    lv_pman_destroy_all(void *data, void *extra);
-void    lv_pman_close_all(void *data);
+void lv_pman_init(lv_pman_t *pman, void *args, lv_indev_t *indev,
+                  void (*controller_cb)(void *, lv_pman_controller_msg_t));
+void lv_pman_change_page(lv_pman_t *pman, void *args, lv_pman_page_t page);
+void lv_pman_change_page_extra(lv_pman_t *pman, void *args, lv_pman_page_t newpage, void *extra);
+void lv_pman_back(lv_pman_t *pman, void *args);
+void lv_pman_rebase_page(lv_pman_t *pman, void *args, lv_pman_page_t newpage);
+void lv_pman_rebase_page_extra(lv_pman_t *pman, void *args, lv_pman_page_t newpage, void *extra);
+void lv_pman_swap_page(lv_pman_t *pman, void *args, lv_pman_page_t newpage);
+void lv_pman_swap_page_extra(lv_pman_t *pman, void *args, lv_pman_page_t newpage, void *extra);
+void lv_pman_reset_to_page_id(lv_pman_t *pman, void *args, int id, uint8_t *found);
+void lv_pman_event(lv_pman_t *pman, lv_pman_event_t event);
+void lv_pman_register_obj_id(lv_pman_handle_t handle, lv_obj_t *obj, int id);
+void lv_pman_register_obj_id_and_number(lv_pman_handle_t handle, lv_obj_t *obj, int id, int number);
+void lv_pman_destroy_all(void *state, void *extra);
+void lv_pman_close_all(void *state);
 
 
 
