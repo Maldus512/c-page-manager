@@ -136,8 +136,6 @@ void lv_pman_rebase_page_extra(lv_pman_t *pman, void *args, lv_pman_page_t newpa
     assert(current != NULL);
 
     close_page(current);
-    destroy_page(current);
-
     clear_page_stack(pman);
 
     current = lv_pman_page_stack_push(&pman->page_stack, &newpage);
@@ -433,9 +431,9 @@ static void free_user_data_callback(lv_event_t *event) {
 
 /**
  * @brief Page subscription to events
- * 
- * @param pman 
- * @param event 
+ *
+ * @param pman
+ * @param event
  */
 static void page_subscription_cb(lv_pman_t *pman, lv_pman_event_t event) {
     lv_pman_controller_msg_t cmsg = lv_pman_process_page_event(pman, pman->args, event);
@@ -445,8 +443,8 @@ static void page_subscription_cb(lv_pman_t *pman, lv_pman_event_t event) {
 
 /**
  * @brief LVGL events callback
- * 
- * @param event 
+ *
+ * @param event
  */
 static void event_callback(lv_event_t *event) {
     lv_obj_t *target = lv_event_get_current_target(event);
@@ -469,8 +467,8 @@ static void event_callback(lv_event_t *event) {
 
 /**
  * @brief Destroys a page
- * 
- * @param page 
+ *
+ * @param page
  */
 static void destroy_page(lv_pman_page_t *page) {
     if (page->destroy) {
@@ -481,10 +479,10 @@ static void destroy_page(lv_pman_page_t *page) {
 
 /**
  * @brief Opens a page
- * 
- * @param handle 
- * @param page 
- * @param args 
+ *
+ * @param handle
+ * @param page
+ * @param args
  */
 static void open_page(lv_pman_handle_t handle, lv_pman_page_t *page, void *args) {
     if (page->open) {
@@ -495,8 +493,8 @@ static void open_page(lv_pman_handle_t handle, lv_pman_page_t *page, void *args)
 
 /**
  * @brief Closes a page
- * 
- * @param page 
+ *
+ * @param page
  */
 static void close_page(lv_pman_page_t *page) {
     if (page->close) {
