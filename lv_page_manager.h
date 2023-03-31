@@ -12,7 +12,6 @@
  * 
  */
 
-#include "lv_page_manager_conf.h"
 #include "src/page_manager.h"
 
 

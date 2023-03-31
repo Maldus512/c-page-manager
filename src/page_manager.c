@@ -9,7 +9,7 @@ static void reset_page(lv_pman_t *pman);
 static void free_user_data_callback(lv_event_t *event);
 static void page_subscription_cb(lv_pman_t *pman, lv_pman_event_t event);
 static void event_callback(lv_event_t *event);
-static void open_page(lv_pman_handle_t handle, lv_pman_page_t *page, void *args);
+static void open_page(lv_pman_handle_t handle, lv_pman_page_t *page);
 static void close_page(lv_pman_page_t *page);
 static void destroy_page(lv_pman_page_t *page);
 
@@ -18,15 +18,14 @@ static void destroy_page(lv_pman_page_t *page);
  * @brief Initialize the page manager instance
  *
  * @param pman Pointer to the page manager instance
- * @param args user pointer
+ * @param user_data user pointer
  * @param indev optional input device reference
- * @param controller_cb function to handle controller messages
+ * @param user_msg_cb function to handle user messages
  */
-void lv_pman_init(lv_pman_t *pman, void *args, lv_indev_t *indev,
-                  void (*controller_cb)(void *, lv_pman_controller_msg_t)) {
-    pman->touch_indev   = indev;
-    pman->args          = args;
-    pman->controller_cb = controller_cb;
+void lv_pman_init(lv_pman_t *pman, void *user_data, lv_indev_t *indev, lv_pman_user_msg_cb_t user_msg_cb) {
+    pman->touch_indev = indev;
+    pman->user_data   = user_data;
+    pman->user_msg_cb = user_msg_cb;
 
     lv_pman_page_stack_init(&pman->page_stack);
 }
@@ -42,11 +41,11 @@ void lv_pman_init(lv_pman_t *pman, void *args, lv_indev_t *indev,
  * destroyed and the new page takes its place on top of the stack
  *
  * @param pman
- * @param args
+ * @param user_data
  * @param newpage
  * @param extra
  */
-void lv_pman_swap_page_extra(lv_pman_t *pman, void *args, lv_pman_page_t newpage, void *extra) {
+void lv_pman_swap_page_extra(lv_pman_t *pman, lv_pman_page_t newpage, void *extra) {
     lv_pman_page_t *current = lv_pman_page_stack_top(&pman->page_stack);
     assert(current != NULL);
 
@@ -61,12 +60,12 @@ void lv_pman_swap_page_extra(lv_pman_t *pman, void *args, lv_pman_page_t newpage
     current->extra = extra;
     // Create the newpage
     if (current->create) {
-        current->state = current->create(args, current->extra);
+        current->state = current->create(pman->user_data, current->extra);
     } else {
         current->state = NULL;
     }
 
-    open_page(pman, current, args);
+    open_page(pman, current);
     reset_page(pman);
 }
 
@@ -76,12 +75,11 @@ void lv_pman_swap_page_extra(lv_pman_t *pman, void *args, lv_pman_page_t newpage
  * destroyed and the new page takes its place on top of the stack
  *
  * @param pman
- * @param args
  * @param newpage
  * @param extra
  */
-void lv_pman_swap_page(lv_pman_t *pman, void *args, lv_pman_page_t newpage) {
-    lv_pman_swap_page_extra(pman, args, newpage, NULL);
+void lv_pman_swap_page(lv_pman_t *pman, lv_pman_page_t newpage) {
+    lv_pman_swap_page_extra(pman, newpage, NULL);
 }
 
 
@@ -90,11 +88,10 @@ void lv_pman_swap_page(lv_pman_t *pman, void *args, lv_pman_page_t newpage) {
  * closed and destroyed. If no such page is found, clears the whole stack.
  *
  * @param pman
- * @param args
  * @param id
  * @param found whether the target page was found or not
  */
-void lv_pman_reset_to_page_id(lv_pman_t *pman, void *args, int id, uint8_t *found) {
+void lv_pman_reset_to_page_id(lv_pman_t *pman, int id, uint8_t *found) {
     if (found) {
         *found = 0;
     }
@@ -110,7 +107,7 @@ void lv_pman_reset_to_page_id(lv_pman_t *pman, void *args, int id, uint8_t *foun
                 *found = 1;
             }
 
-            open_page(pman, current, args);
+            open_page(pman, current);
             reset_page(pman);
             break;
         } else {
@@ -127,11 +124,10 @@ void lv_pman_reset_to_page_id(lv_pman_t *pman, void *args, int id, uint8_t *foun
  * destroyed
  *
  * @param pman
- * @param args
  * @param newpage
  * @param extra
  */
-void lv_pman_rebase_page_extra(lv_pman_t *pman, void *args, lv_pman_page_t newpage, void *extra) {
+void lv_pman_rebase_page_extra(lv_pman_t *pman, lv_pman_page_t newpage, void *extra) {
     lv_pman_page_t *current = lv_pman_page_stack_top(&pman->page_stack);
     assert(current != NULL);
 
@@ -144,13 +140,13 @@ void lv_pman_rebase_page_extra(lv_pman_t *pman, void *args, lv_pman_page_t newpa
     current->extra = extra;
     // Create the newpage
     if (current->create) {
-        current->state = current->create(args, current->extra);
+        current->state = current->create(pman, current->extra);
     } else {
         current->state = NULL;
     }
 
     // Open the page
-    open_page(pman, current, args);
+    open_page(pman, current);
     reset_page(pman);
 }
 
@@ -160,11 +156,10 @@ void lv_pman_rebase_page_extra(lv_pman_t *pman, void *args, lv_pman_page_t newpa
  * destroyed
  *
  * @param pman
- * @param args
  * @param newpage
  */
-void lv_pman_rebase_page(lv_pman_t *pman, void *args, lv_pman_page_t newpage) {
-    lv_pman_rebase_page_extra(pman, args, newpage, NULL);
+void lv_pman_rebase_page(lv_pman_t *pman, lv_pman_page_t newpage) {
+    lv_pman_rebase_page_extra(pman, newpage, NULL);
 }
 
 
@@ -173,11 +168,10 @@ void lv_pman_rebase_page(lv_pman_t *pman, void *args, lv_pman_page_t newpage) {
  * closed.
  *
  * @param pman
- * @param args
  * @param newpage
  * @param extra
  */
-void lv_pman_change_page_extra(lv_pman_t *pman, void *args, lv_pman_page_t newpage, void *extra) {
+void lv_pman_change_page_extra(lv_pman_t *pman, lv_pman_page_t newpage, void *extra) {
     lv_pman_page_t *current = lv_pman_page_stack_top(&pman->page_stack);
     if (current != NULL) {
         close_page(current);
@@ -190,13 +184,13 @@ void lv_pman_change_page_extra(lv_pman_t *pman, void *args, lv_pman_page_t newpa
 
     // Create the newpage
     if (current->create) {
-        current->state = current->create(args, extra);
+        current->state = current->create(pman, extra);
     } else {
         current->state = NULL;
     }
 
     // Open the page
-    open_page(pman, current, args);
+    open_page(pman, current);
     reset_page(pman);
 }
 
@@ -206,15 +200,14 @@ void lv_pman_change_page_extra(lv_pman_t *pman, void *args, lv_pman_page_t newpa
  * closed.
  *
  * @param pman
- * @param args
  * @param newpage
  */
-void lv_pman_change_page(lv_pman_t *pman, void *args, lv_pman_page_t page) {
-    lv_pman_change_page_extra(pman, args, page, NULL);
+void lv_pman_change_page(lv_pman_t *pman, lv_pman_page_t page) {
+    lv_pman_change_page_extra(pman, page, NULL);
 }
 
 
-void lv_pman_back(lv_pman_t *pman, void *args) {
+void lv_pman_back(lv_pman_t *pman) {
     lv_pman_page_t page;
 
     if (lv_pman_page_stack_pop(&pman->page_stack, &page) == 0) {
@@ -224,7 +217,7 @@ void lv_pman_back(lv_pman_t *pman, void *args) {
         lv_pman_page_t *current = lv_pman_page_stack_top(&pman->page_stack);
         assert(current != NULL);
 
-        open_page(pman, current, args);
+        open_page(pman, current);
         reset_page(pman);
     }
 }
@@ -239,50 +232,49 @@ void lv_pman_back(lv_pman_t *pman, void *args) {
  * @brief Processes an event, sending it to the current page and returning a message from the page to the system.
  *
  * @param pman
- * @param args
  * @param event
- * @return lv_pman_controller_msg_t
+ * @return void*
  */
-lv_pman_controller_msg_t lv_pman_process_page_event(lv_pman_t *pman, void *args, lv_pman_event_t event) {
+void *lv_pman_process_page_event(lv_pman_t *pman, lv_pman_event_t event) {
     lv_pman_page_t *current = lv_pman_page_stack_top(&pman->page_stack);
     assert(current != NULL);
 
-    lv_pman_msg_t msg = current->process_event(args, current->state, event);
+    lv_pman_msg_t msg = current->process_event(pman, current->state, event);
 
     switch (msg.vmsg.tag) {
         case LV_PMAN_VIEW_MSG_TAG_CHANGE_PAGE:
-            lv_pman_change_page(pman, args, *((lv_pman_page_t *)msg.vmsg.page));
+            lv_pman_change_page(pman, *((lv_pman_page_t *)msg.vmsg.page));
             break;
 
         case LV_PMAN_VIEW_MSG_TAG_CHANGE_PAGE_EXTRA:
-            lv_pman_change_page_extra(pman, args, *((lv_pman_page_t *)msg.vmsg.page), msg.vmsg.extra);
+            lv_pman_change_page_extra(pman, *((lv_pman_page_t *)msg.vmsg.page), msg.vmsg.extra);
             break;
 
         case LV_PMAN_VIEW_MSG_TAG_BACK:
-            lv_pman_back(pman, args);
+            lv_pman_back(pman);
             break;
 
         case LV_PMAN_VIEW_MSG_TAG_REBASE:
-            lv_pman_rebase_page(pman, args, *((lv_pman_page_t *)msg.vmsg.page));
+            lv_pman_rebase_page(pman, *((lv_pman_page_t *)msg.vmsg.page));
             break;
 
         case LV_PMAN_VIEW_MSG_TAG_SWAP:
-            lv_pman_swap_page(pman, args, *((lv_pman_page_t *)msg.vmsg.page));
+            lv_pman_swap_page(pman, *((lv_pman_page_t *)msg.vmsg.page));
             break;
 
         case LV_PMAN_VIEW_MSG_TAG_SWAP_EXTRA:
-            lv_pman_swap_page_extra(pman, args, *((lv_pman_page_t *)msg.vmsg.page), msg.vmsg.extra);
+            lv_pman_swap_page_extra(pman, *((lv_pman_page_t *)msg.vmsg.page), msg.vmsg.extra);
             break;
 
         case LV_PMAN_VIEW_MSG_TAG_RESET_TO:
-            lv_pman_reset_to_page_id(pman, args, msg.vmsg.id, NULL);
+            lv_pman_reset_to_page_id(pman, msg.vmsg.id, NULL);
             break;
 
         case LV_PMAN_VIEW_MSG_TAG_NOTHING:
             break;
     }
 
-    return msg.cmsg;
+    return msg.user_msg;
 }
 
 
@@ -303,21 +295,21 @@ void lv_pman_register_obj_id_and_number(lv_pman_handle_t handle, lv_obj_t *obj, 
     }
     data->id     = id;
     data->number = number;
-    data->handle = handle;
 
     lv_obj_set_user_data(obj, data);
     lv_obj_remove_event_cb(obj, free_user_data_callback);
     lv_obj_remove_event_cb(obj, event_callback);
-    lv_obj_add_event_cb(obj, free_user_data_callback, LV_EVENT_DELETE, NULL);
-    lv_obj_add_event_cb(obj, event_callback, LV_EVENT_CLICKED, NULL);
-    lv_obj_add_event_cb(obj, event_callback, LV_EVENT_VALUE_CHANGED, NULL);
-    lv_obj_add_event_cb(obj, event_callback, LV_EVENT_RELEASED, NULL);
-    lv_obj_add_event_cb(obj, event_callback, LV_EVENT_PRESSED, NULL);
-    lv_obj_add_event_cb(obj, event_callback, LV_EVENT_PRESSING, NULL);
-    lv_obj_add_event_cb(obj, event_callback, LV_EVENT_LONG_PRESSED, NULL);
-    lv_obj_add_event_cb(obj, event_callback, LV_EVENT_LONG_PRESSED_REPEAT, NULL);
-    lv_obj_add_event_cb(obj, event_callback, LV_EVENT_CANCEL, NULL);
-    lv_obj_add_event_cb(obj, event_callback, LV_EVENT_READY, NULL);
+    lv_obj_add_event_cb(obj, event_callback, LV_EVENT_CLICKED, handle);
+    lv_obj_add_event_cb(obj, event_callback, LV_EVENT_VALUE_CHANGED, handle);
+    lv_obj_add_event_cb(obj, event_callback, LV_EVENT_RELEASED, handle);
+    lv_obj_add_event_cb(obj, event_callback, LV_EVENT_PRESSED, handle);
+    lv_obj_add_event_cb(obj, event_callback, LV_EVENT_PRESSING, handle);
+    lv_obj_add_event_cb(obj, event_callback, LV_EVENT_LONG_PRESSED, handle);
+    lv_obj_add_event_cb(obj, event_callback, LV_EVENT_LONG_PRESSED_REPEAT, handle);
+    lv_obj_add_event_cb(obj, event_callback, LV_EVENT_CANCEL, handle);
+    lv_obj_add_event_cb(obj, event_callback, LV_EVENT_READY, handle);
+    lv_obj_add_event_cb(obj, event_callback, LV_EVENT_DELETE, handle);
+    lv_obj_add_event_cb(obj, free_user_data_callback, LV_EVENT_DELETE, handle);
 }
 
 
@@ -331,6 +323,18 @@ void lv_pman_register_obj_id_and_number(lv_pman_handle_t handle, lv_obj_t *obj, 
  */
 void lv_pman_register_obj_id(lv_pman_handle_t handle, lv_obj_t *obj, int id) {
     lv_pman_register_obj_id_and_number(handle, obj, id, 0);
+}
+
+
+/**
+ * @brief Get the user pointer registered for the page manager instance
+ *
+ * @param handle
+ * @return void*
+ */
+void *lv_pman_get_user_data(lv_pman_handle_t handle) {
+    lv_pman_t *pman = handle;
+    return pman->user_data;
 }
 
 
@@ -436,8 +440,8 @@ static void free_user_data_callback(lv_event_t *event) {
  * @param event
  */
 static void page_subscription_cb(lv_pman_t *pman, lv_pman_event_t event) {
-    lv_pman_controller_msg_t cmsg = lv_pman_process_page_event(pman, pman->args, event);
-    pman->controller_cb(pman->args, cmsg);
+    void *user_msg = lv_pman_process_page_event(pman, event);
+    pman->user_msg_cb(pman, user_msg);
 }
 
 
@@ -461,7 +465,9 @@ static void event_callback(lv_event_t *event) {
             },
     };
 
-    page_subscription_cb(data->handle, pman_event);
+    lv_pman_handle_t handle = lv_event_get_user_data(event);
+
+    page_subscription_cb(handle, pman_event);
 }
 
 
@@ -482,11 +488,10 @@ static void destroy_page(lv_pman_page_t *page) {
  *
  * @param handle
  * @param page
- * @param args
  */
-static void open_page(lv_pman_handle_t handle, lv_pman_page_t *page, void *args) {
+static void open_page(lv_pman_handle_t handle, lv_pman_page_t *page) {
     if (page->open) {
-        page->open(handle, args, page->state);
+        page->open(handle, page->state);
     }
 }
 

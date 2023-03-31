@@ -19,7 +19,7 @@ typedef enum {
     LV_PMAN_VIEW_MSG_TAG_CHANGE_PAGE_EXTRA,     // Change to a new page, with an extra argument
     LV_PMAN_VIEW_MSG_TAG_SWAP,                  // Swap with a new page
     LV_PMAN_VIEW_MSG_TAG_SWAP_EXTRA,            // Swap with a new page, with an extra argument
-} lv_pman_view_msg_tag_t;
+} lv_pman_stack_msg_tag_t;
 
 
 /**
@@ -27,7 +27,7 @@ typedef enum {
  *
  */
 typedef struct {
-    lv_pman_view_msg_tag_t tag;
+    lv_pman_stack_msg_tag_t tag;
 
     union {
         struct {
@@ -36,7 +36,7 @@ typedef struct {
         };
         int id;     // ID to reset to
     };
-} lv_pman_view_msg_t;
+} lv_pman_stack_msg_t;
 
 
 /**
@@ -44,8 +44,8 @@ typedef struct {
  *
  */
 typedef struct {
-    lv_pman_controller_msg_t cmsg;
-    lv_pman_view_msg_t       vmsg;
+    void              *user_msg;
+    lv_pman_stack_msg_t vmsg;
 } lv_pman_msg_t;
 
 
@@ -63,8 +63,6 @@ typedef void *lv_pman_handle_t;
 typedef struct {
     int id;
     int number;
-
-    lv_pman_handle_t handle;
 } lv_pman_obj_data_t;
 
 
@@ -92,7 +90,7 @@ typedef struct {
             int             number;
             lv_obj_t       *target;
         } lvgl;
-        lv_pman_user_event_t user_event;
+        void *user_event;
     };
 } lv_pman_event_t;
 
@@ -103,17 +101,17 @@ typedef struct {
     void *extra;
 
     // Called when the page is first created; it initializes and returns the state structures used by the page
-    void *(*create)(void *args, void *extra);
+    void *(*create)(lv_pman_handle_t handle, void *extra);
     // Called when the page definitively exits the scenes; should free all used memory
     void (*destroy)(void *state, void *extra);
 
     // Called when the page enters view
-    void (*open)(lv_pman_handle_t handle, void *args, void *state);
+    void (*open)(lv_pman_handle_t handle, void *state);
     // Called when the page exits view
     void (*close)(void *state);
 
     // Called to process an event
-    lv_pman_msg_t (*process_event)(void *args, void *state, lv_pman_event_t event);
+    lv_pman_msg_t (*process_event)(lv_pman_handle_t handle, void *state, lv_pman_event_t event);
 } lv_pman_page_t;
 
 
