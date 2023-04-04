@@ -1,6 +1,21 @@
 #include <assert.h>
+#include "lv_pman_timer.h"
 #include "page_manager.h"
+#include "src/page.h"
 #include "stack.h"
+
+
+#define DEFINE_TIMER_WRAPPER(fun)                                                                                      \
+    void lv_pman_timer_##fun(lv_pman_timer_t *timer) { lv_timer_##fun(timer->timer); }
+#define DEFINE_TIMER_WRAPPER_ARG(fun, type)                                                                            \
+    void lv_pman_timer_##fun(lv_pman_timer_t *timer, type arg) { lv_timer_##fun(timer->timer, arg); }
+
+
+struct lv_pman_timer {
+    lv_pman_handle_t handle;
+    void            *user_data;
+    lv_timer_t      *timer;
+};
 
 
 static void clear_page_stack(lv_pman_t *pman);
@@ -9,6 +24,7 @@ static void reset_page(lv_pman_t *pman);
 static void free_user_data_callback(lv_event_t *event);
 static void page_subscription_cb(lv_pman_t *pman, lv_pman_event_t event);
 static void event_callback(lv_event_t *event);
+static void timer_callback(lv_timer_t *timer);
 static void open_page(lv_pman_handle_t handle, lv_pman_page_t *page);
 static void close_page(lv_pman_page_t *page);
 static void destroy_page(lv_pman_page_t *page);
@@ -242,35 +258,37 @@ void *lv_pman_process_page_event(lv_pman_t *pman, lv_pman_event_t event) {
     lv_pman_msg_t msg = current->process_event(pman, current->state, event);
 
     switch (msg.vmsg.tag) {
-        case LV_PMAN_VIEW_MSG_TAG_CHANGE_PAGE:
-            lv_pman_change_page(pman, *((lv_pman_page_t *)msg.vmsg.page));
+        case LV_PMAN_STACK_MSG_TAG_CHANGE_PAGE:
+            lv_pman_change_page(pman, *((lv_pman_page_t *)msg.vmsg.as.destination.page));
             break;
 
-        case LV_PMAN_VIEW_MSG_TAG_CHANGE_PAGE_EXTRA:
-            lv_pman_change_page_extra(pman, *((lv_pman_page_t *)msg.vmsg.page), msg.vmsg.extra);
+        case LV_PMAN_STACK_MSG_TAG_CHANGE_PAGE_EXTRA:
+            lv_pman_change_page_extra(pman, *((lv_pman_page_t *)msg.vmsg.as.destination.page),
+                                      msg.vmsg.as.destination.extra);
             break;
 
-        case LV_PMAN_VIEW_MSG_TAG_BACK:
+        case LV_PMAN_STACK_MSG_TAG_BACK:
             lv_pman_back(pman);
             break;
 
-        case LV_PMAN_VIEW_MSG_TAG_REBASE:
-            lv_pman_rebase_page(pman, *((lv_pman_page_t *)msg.vmsg.page));
+        case LV_PMAN_STACK_MSG_TAG_REBASE:
+            lv_pman_rebase_page(pman, *((lv_pman_page_t *)msg.vmsg.as.destination.page));
             break;
 
-        case LV_PMAN_VIEW_MSG_TAG_SWAP:
-            lv_pman_swap_page(pman, *((lv_pman_page_t *)msg.vmsg.page));
+        case LV_PMAN_STACK_MSG_TAG_SWAP:
+            lv_pman_swap_page(pman, *((lv_pman_page_t *)msg.vmsg.as.destination.page));
             break;
 
-        case LV_PMAN_VIEW_MSG_TAG_SWAP_EXTRA:
-            lv_pman_swap_page_extra(pman, *((lv_pman_page_t *)msg.vmsg.page), msg.vmsg.extra);
+        case LV_PMAN_STACK_MSG_TAG_SWAP_EXTRA:
+            lv_pman_swap_page_extra(pman, *((lv_pman_page_t *)msg.vmsg.as.destination.page),
+                                    msg.vmsg.as.destination.extra);
             break;
 
-        case LV_PMAN_VIEW_MSG_TAG_RESET_TO:
-            lv_pman_reset_to_page_id(pman, msg.vmsg.id, NULL);
+        case LV_PMAN_STACK_MSG_TAG_RESET_TO:
+            lv_pman_reset_to_page_id(pman, msg.vmsg.as.id, NULL);
             break;
 
-        case LV_PMAN_VIEW_MSG_TAG_NOTHING:
+        case LV_PMAN_STACK_MSG_TAG_NOTHING:
             break;
     }
 
@@ -278,52 +296,21 @@ void *lv_pman_process_page_event(lv_pman_t *pman, lv_pman_event_t event) {
 }
 
 
-/**
- * @brief Register an lvgl object in the default event management system. Events sent by the objects will be forwarded
- * to the page. It includes an ID code and a number.
- *
- * @param handle Handle for event management, passed to page callbacks
- * @param obj
- * @param id
- * @param number
- */
-void lv_pman_register_obj_id_and_number(lv_pman_handle_t handle, lv_obj_t *obj, int id, int number) {
-    lv_pman_obj_data_t *data = lv_obj_get_user_data(obj);
-    if (data == NULL) {
-        data = lv_mem_alloc(sizeof(lv_pman_obj_data_t));
-        assert(data != NULL);
-    }
-    data->id     = id;
-    data->number = number;
-
-    lv_obj_set_user_data(obj, data);
-    lv_obj_remove_event_cb(obj, free_user_data_callback);
+void lv_pman_unregister_obj_event(lv_pman_handle_t handle, lv_obj_t *obj) {
     lv_obj_remove_event_cb(obj, event_callback);
-    lv_obj_add_event_cb(obj, event_callback, LV_EVENT_CLICKED, handle);
-    lv_obj_add_event_cb(obj, event_callback, LV_EVENT_VALUE_CHANGED, handle);
-    lv_obj_add_event_cb(obj, event_callback, LV_EVENT_RELEASED, handle);
-    lv_obj_add_event_cb(obj, event_callback, LV_EVENT_PRESSED, handle);
-    lv_obj_add_event_cb(obj, event_callback, LV_EVENT_PRESSING, handle);
-    lv_obj_add_event_cb(obj, event_callback, LV_EVENT_LONG_PRESSED, handle);
-    lv_obj_add_event_cb(obj, event_callback, LV_EVENT_LONG_PRESSED_REPEAT, handle);
-    lv_obj_add_event_cb(obj, event_callback, LV_EVENT_CANCEL, handle);
-    lv_obj_add_event_cb(obj, event_callback, LV_EVENT_READY, handle);
-    lv_obj_add_event_cb(obj, event_callback, LV_EVENT_DELETE, handle);
-    lv_obj_add_event_cb(obj, free_user_data_callback, LV_EVENT_DELETE, handle);
 }
 
 
-/**
- * @brief Register an lvgl object in the default event management system. Events sent by the objects will be forwarded
- * to the page.
- *
- * @param handle Handle for event management, passed to page callbacks
- * @param obj
- * @param id
- */
-void lv_pman_register_obj_id(lv_pman_handle_t handle, lv_obj_t *obj, int id) {
-    lv_pman_register_obj_id_and_number(handle, obj, id, 0);
+void lv_pman_register_obj_event(lv_pman_handle_t handle, lv_obj_t *obj, lv_event_code_t event) {
+    lv_obj_add_event_cb(obj, event_callback, event, handle);
 }
+
+
+void lv_pman_set_obj_self_destruct(lv_obj_t *obj) {
+    lv_obj_remove_event_cb(obj, free_user_data_callback);
+    lv_obj_add_event_cb(obj, free_user_data_callback, LV_EVENT_DELETE, NULL);
+}
+
 
 
 /**
@@ -372,6 +359,40 @@ void lv_pman_close_all(void *state) {
     (void)state;
     lv_obj_clean(lv_scr_act());
 }
+
+
+lv_pman_timer_t *lv_pman_timer_create(lv_pman_handle_t handle, uint32_t period, void *user_data) {
+    lv_pman_timer_t *timer = lv_mem_alloc(sizeof(lv_pman_timer_t));
+    if (timer == NULL) {
+        return NULL;
+    }
+
+    timer->handle    = handle;
+    timer->user_data = user_data;
+    timer->timer     = lv_timer_create(timer_callback, period, timer);
+    lv_timer_pause(timer->timer);
+
+    return timer;
+}
+
+
+void lv_pman_timer_delete(lv_pman_timer_t *timer) {
+    lv_timer_del(timer->timer);
+    lv_mem_free(timer);
+}
+
+
+void *lv_pman_timer_get_user_data(lv_pman_timer_t *timer) {
+    return timer->user_data;
+}
+
+
+DEFINE_TIMER_WRAPPER(ready)
+DEFINE_TIMER_WRAPPER(resume)
+DEFINE_TIMER_WRAPPER(reset)
+DEFINE_TIMER_WRAPPER(pause)
+DEFINE_TIMER_WRAPPER_ARG(set_period, uint32_t)
+DEFINE_TIMER_WRAPPER_ARG(set_repeat_count, uint32_t)
 
 
 /*
@@ -426,8 +447,8 @@ static void wait_release(lv_pman_t *pman) {
  */
 static void free_user_data_callback(lv_event_t *event) {
     if (lv_event_get_code(event) == LV_EVENT_DELETE) {
-        lv_obj_t           *obj  = lv_event_get_current_target(event);
-        lv_pman_obj_data_t *data = lv_obj_get_user_data(obj);
+        lv_obj_t *obj  = lv_event_get_current_target(event);
+        void     *data = lv_obj_get_user_data(obj);
         lv_mem_free(data);
     }
 }
@@ -451,23 +472,35 @@ static void page_subscription_cb(lv_pman_t *pman, lv_pman_event_t event) {
  * @param event
  */
 static void event_callback(lv_event_t *event) {
-    lv_obj_t *target = lv_event_get_current_target(event);
-
-    lv_pman_obj_data_t *data       = lv_obj_get_user_data(target);
-    lv_pman_event_t     pman_event = {
-            .tag = LV_PMAN_EVENT_TAG_LVGL,
-            .lvgl =
-            {
-                    .event  = lv_event_get_code(event),
-                    .id     = data->id,
-                    .number = data->number,
-                    .target = target,
-            },
+    lv_pman_event_t pman_event = {
+        .tag = LV_PMAN_EVENT_TAG_LVGL,
+        .as  = {.lvgl = event},
     };
 
     lv_pman_handle_t handle = lv_event_get_user_data(event);
-
     page_subscription_cb(handle, pman_event);
+}
+
+
+/**
+ * @brief LVGL timers callback
+ *
+ * @param timer
+ */
+static void timer_callback(lv_timer_t *timer) {
+    lv_pman_timer_t *pman_timer = timer->user_data;
+
+    lv_pman_event_t pman_event = {
+        .tag = LV_PMAN_EVENT_TAG_TIMER,
+        .as  = {.timer = pman_timer},
+    };
+
+    page_subscription_cb(pman_timer->handle, pman_event);
+
+    // If the timer should be destroyed free the accompanying data
+    if (timer->repeat_count == 0) {
+        lv_mem_free(pman_timer);
+    }
 }
 
 
