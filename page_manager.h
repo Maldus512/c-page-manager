@@ -1,8 +1,8 @@
-#ifndef LVGL_H_PAGE_MANAGER_H_INCLUDE
-#define LVGL_H_PAGE_MANAGER_H_INCLUDE
+#ifndef PAGE_MANAGER_H_INCLUDE
+#define PAGE_MANAGER_H_INCLUDE
 
 /**
- * @file lv_page_manager.h
+ * @file page_manager.h
  * @author Maldus512 (mattia.maldini@hswsnc.com)
  * @brief Main header of the library
  * @version 0.1

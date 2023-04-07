@@ -2,19 +2,19 @@
 #include "stack.h"
 
 
-#ifdef LV_PMAN_PAGE_STACK_DEPTH
-#define ARRAY_LENGTH(stack) LV_PMAN_PAGE_STACK_DEPTH
+#ifdef PMAN_PAGE_STACK_DEPTH
+#define ARRAY_LENGTH(stack) PMAN_PAGE_STACK_DEPTH
 #else
 #define ARRAY_LENGTH(stack) 0
 #endif
 
 
-void lv_pman_page_stack_init(lv_pman_page_stack_t *pstack) {
+void pman_page_stack_init(pman_page_stack_t *pstack) {
     pstack->index = 0;
 }
 
 
-lv_pman_page_t *lv_pman_page_stack_push(lv_pman_page_stack_t *pstack, lv_pman_page_t *ppage) {
+pman_page_t *pman_page_stack_push(pman_page_stack_t *pstack, pman_page_t *ppage) {
     if (pstack->index == ARRAY_LENGTH(pstack)) {
         return NULL;
     }
@@ -26,7 +26,7 @@ lv_pman_page_t *lv_pman_page_stack_push(lv_pman_page_stack_t *pstack, lv_pman_pa
 }
 
 
-int lv_pman_page_stack_pop(lv_pman_page_stack_t *pstack, lv_pman_page_t *ppage) {
+int pman_page_stack_pop(pman_page_stack_t *pstack, pman_page_t *ppage) {
     if (pstack->index == 0) {
         return -1;
     }
@@ -40,7 +40,7 @@ int lv_pman_page_stack_pop(lv_pman_page_stack_t *pstack, lv_pman_page_t *ppage) 
 }
 
 
-lv_pman_page_t *lv_pman_page_stack_top(lv_pman_page_stack_t *pstack) {
+pman_page_t *pman_page_stack_top(pman_page_stack_t *pstack) {
     if (pstack->index == 0) {
         return NULL;
     }
@@ -49,7 +49,7 @@ lv_pman_page_t *lv_pman_page_stack_top(lv_pman_page_stack_t *pstack) {
 }
 
 
-void lv_pman_page_stack_dequeue(lv_pman_page_stack_t *pstack) {
+void pman_page_stack_dequeue(pman_page_stack_t *pstack) {
     if (pstack->index > 0) {
         for (size_t i = 0; i < pstack->index - 1; i++) {
             pstack->items[i] = pstack->items[i + 1];
@@ -60,12 +60,12 @@ void lv_pman_page_stack_dequeue(lv_pman_page_stack_t *pstack) {
 }
 
 
-uint8_t lv_pman_page_stack_is_empty(lv_pman_page_stack_t *pstack) {
+uint8_t pman_page_stack_is_empty(pman_page_stack_t *pstack) {
     return pstack->index == 0;
 }
 
 
-uint8_t lv_pman_page_stack_is_full(lv_pman_page_stack_t *pstack) {
+uint8_t pman_page_stack_is_full(pman_page_stack_t *pstack) {
     size_t const capacity = ARRAY_LENGTH(pstack->items);
     return pstack->index == capacity;
 }

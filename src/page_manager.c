@@ -1,33 +1,33 @@
 #include <assert.h>
-#include "lv_pman_timer.h"
+#include "page_manager_timer.h"
 #include "page_manager.h"
 #include "src/page.h"
 #include "stack.h"
 
 
 #define DEFINE_TIMER_WRAPPER(fun)                                                                                      \
-    void lv_pman_timer_##fun(lv_pman_timer_t *timer) { lv_timer_##fun(timer->timer); }
+    void pman_timer_##fun(pman_timer_t *timer) { lv_timer_##fun(timer->timer); }
 #define DEFINE_TIMER_WRAPPER_ARG(fun, type)                                                                            \
-    void lv_pman_timer_##fun(lv_pman_timer_t *timer, type arg) { lv_timer_##fun(timer->timer, arg); }
+    void pman_timer_##fun(pman_timer_t *timer, type arg) { lv_timer_##fun(timer->timer, arg); }
 
 
-struct lv_pman_timer {
-    lv_pman_handle_t handle;
-    void            *user_data;
-    lv_timer_t      *timer;
+struct pman_timer {
+    pman_handle_t handle;
+    void         *user_data;
+    lv_timer_t   *timer;
 };
 
 
-static void clear_page_stack(lv_pman_t *pman);
-static void wait_release(lv_pman_t *pman);
-static void reset_page(lv_pman_t *pman);
+static void clear_page_stack(pman_t *pman);
+static void wait_release(pman_t *pman);
+static void reset_page(pman_t *pman);
 static void free_user_data_callback(lv_event_t *event);
-static void page_subscription_cb(lv_pman_t *pman, lv_pman_event_t event);
+static void page_subscription_cb(pman_t *pman, pman_event_t event);
 static void event_callback(lv_event_t *event);
 static void timer_callback(lv_timer_t *timer);
-static void open_page(lv_pman_handle_t handle, lv_pman_page_t *page);
-static void close_page(lv_pman_page_t *page);
-static void destroy_page(lv_pman_page_t *page);
+static void open_page(pman_handle_t handle, pman_page_t *page);
+static void close_page(pman_page_t *page);
+static void destroy_page(pman_page_t *page);
 
 
 /**
@@ -38,12 +38,12 @@ static void destroy_page(lv_pman_page_t *page);
  * @param indev optional input device reference
  * @param user_msg_cb function to handle user messages
  */
-void lv_pman_init(lv_pman_t *pman, void *user_data, lv_indev_t *indev, lv_pman_user_msg_cb_t user_msg_cb) {
+void pman_init(pman_t *pman, void *user_data, lv_indev_t *indev, pman_user_msg_cb_t user_msg_cb) {
     pman->touch_indev = indev;
     pman->user_data   = user_data;
     pman->user_msg_cb = user_msg_cb;
 
-    lv_pman_page_stack_init(&pman->page_stack);
+    pman_page_stack_init(&pman->page_stack);
 }
 
 
@@ -61,16 +61,16 @@ void lv_pman_init(lv_pman_t *pman, void *user_data, lv_indev_t *indev, lv_pman_u
  * @param newpage
  * @param extra
  */
-void lv_pman_swap_page_extra(lv_pman_t *pman, lv_pman_page_t newpage, void *extra) {
-    lv_pman_page_t *current = lv_pman_page_stack_top(&pman->page_stack);
+void pman_swap_page_extra(pman_t *pman, pman_page_t newpage, void *extra) {
+    pman_page_t *current = pman_page_stack_top(&pman->page_stack);
     assert(current != NULL);
 
     close_page(current);
     destroy_page(current);
 
-    lv_pman_page_stack_pop(&pman->page_stack, NULL);
+    pman_page_stack_pop(&pman->page_stack, NULL);
 
-    current = lv_pman_page_stack_push(&pman->page_stack, &newpage);
+    current = pman_page_stack_push(&pman->page_stack, &newpage);
     assert(current != NULL);
 
     current->extra = extra;
@@ -94,8 +94,8 @@ void lv_pman_swap_page_extra(lv_pman_t *pman, lv_pman_page_t newpage, void *extr
  * @param newpage
  * @param extra
  */
-void lv_pman_swap_page(lv_pman_t *pman, lv_pman_page_t newpage) {
-    lv_pman_swap_page_extra(pman, newpage, NULL);
+void pman_swap_page(pman_t *pman, pman_page_t newpage) {
+    pman_swap_page_extra(pman, newpage, NULL);
 }
 
 
@@ -107,12 +107,12 @@ void lv_pman_swap_page(lv_pman_t *pman, lv_pman_page_t newpage) {
  * @param id
  * @param found whether the target page was found or not
  */
-void lv_pman_reset_to_page_id(lv_pman_t *pman, int id, uint8_t *found) {
+void pman_reset_to_page_id(pman_t *pman, int id, uint8_t *found) {
     if (found) {
         *found = 0;
     }
 
-    lv_pman_page_t *current = lv_pman_page_stack_top(&pman->page_stack);
+    pman_page_t *current = pman_page_stack_top(&pman->page_stack);
     assert(current != NULL);
 
     close_page(current);
@@ -130,8 +130,8 @@ void lv_pman_reset_to_page_id(lv_pman_t *pman, int id, uint8_t *found) {
             destroy_page(current);
         }
 
-        lv_pman_page_stack_pop(&pman->page_stack, NULL);
-    } while ((current = lv_pman_page_stack_top(&pman->page_stack)) != NULL);
+        pman_page_stack_pop(&pman->page_stack, NULL);
+    } while ((current = pman_page_stack_top(&pman->page_stack)) != NULL);
 }
 
 
@@ -143,14 +143,14 @@ void lv_pman_reset_to_page_id(lv_pman_t *pman, int id, uint8_t *found) {
  * @param newpage
  * @param extra
  */
-void lv_pman_rebase_page_extra(lv_pman_t *pman, lv_pman_page_t newpage, void *extra) {
-    lv_pman_page_t *current = lv_pman_page_stack_top(&pman->page_stack);
+void pman_rebase_page_extra(pman_t *pman, pman_page_t newpage, void *extra) {
+    pman_page_t *current = pman_page_stack_top(&pman->page_stack);
     assert(current != NULL);
 
     close_page(current);
     clear_page_stack(pman);
 
-    current = lv_pman_page_stack_push(&pman->page_stack, &newpage);
+    current = pman_page_stack_push(&pman->page_stack, &newpage);
     assert(current != NULL);
 
     current->extra = extra;
@@ -174,8 +174,8 @@ void lv_pman_rebase_page_extra(lv_pman_t *pman, lv_pman_page_t newpage, void *ex
  * @param pman
  * @param newpage
  */
-void lv_pman_rebase_page(lv_pman_t *pman, lv_pman_page_t newpage) {
-    lv_pman_rebase_page_extra(pman, newpage, NULL);
+void pman_rebase_page(pman_t *pman, pman_page_t newpage) {
+    pman_rebase_page_extra(pman, newpage, NULL);
 }
 
 
@@ -187,13 +187,13 @@ void lv_pman_rebase_page(lv_pman_t *pman, lv_pman_page_t newpage) {
  * @param newpage
  * @param extra
  */
-void lv_pman_change_page_extra(lv_pman_t *pman, lv_pman_page_t newpage, void *extra) {
-    lv_pman_page_t *current = lv_pman_page_stack_top(&pman->page_stack);
+void pman_change_page_extra(pman_t *pman, pman_page_t newpage, void *extra) {
+    pman_page_t *current = pman_page_stack_top(&pman->page_stack);
     if (current != NULL) {
         close_page(current);
     }
 
-    current = lv_pman_page_stack_push(&pman->page_stack, &newpage);
+    current = pman_page_stack_push(&pman->page_stack, &newpage);
     assert(current != NULL);
 
     current->extra = extra;
@@ -218,19 +218,19 @@ void lv_pman_change_page_extra(lv_pman_t *pman, lv_pman_page_t newpage, void *ex
  * @param pman
  * @param newpage
  */
-void lv_pman_change_page(lv_pman_t *pman, lv_pman_page_t page) {
-    lv_pman_change_page_extra(pman, page, NULL);
+void pman_change_page(pman_t *pman, pman_page_t page) {
+    pman_change_page_extra(pman, page, NULL);
 }
 
 
-void lv_pman_back(lv_pman_t *pman) {
-    lv_pman_page_t page;
+void pman_back(pman_t *pman) {
+    pman_page_t page;
 
-    if (lv_pman_page_stack_pop(&pman->page_stack, &page) == 0) {
+    if (pman_page_stack_pop(&pman->page_stack, &page) == 0) {
         close_page(&page);
         destroy_page(&page);
 
-        lv_pman_page_t *current = lv_pman_page_stack_top(&pman->page_stack);
+        pman_page_t *current = pman_page_stack_top(&pman->page_stack);
         assert(current != NULL);
 
         open_page(pman, current);
@@ -251,44 +251,44 @@ void lv_pman_back(lv_pman_t *pman) {
  * @param event
  * @return void*
  */
-void *lv_pman_process_page_event(lv_pman_t *pman, lv_pman_event_t event) {
-    lv_pman_page_t *current = lv_pman_page_stack_top(&pman->page_stack);
+void *pman_process_page_event(pman_t *pman, pman_event_t event) {
+    pman_page_t *current = pman_page_stack_top(&pman->page_stack);
     assert(current != NULL);
 
-    lv_pman_msg_t msg = current->process_event(pman, current->state, event);
+    pman_msg_t msg = current->process_event(pman, current->state, event);
 
-    switch (msg.vmsg.tag) {
-        case LV_PMAN_STACK_MSG_TAG_CHANGE_PAGE:
-            lv_pman_change_page(pman, *((lv_pman_page_t *)msg.vmsg.as.destination.page));
+    switch (msg.stack_msg.tag) {
+        case PMAN_STACK_MSG_TAG_CHANGE_PAGE:
+            pman_change_page(pman, *((pman_page_t *)msg.stack_msg.as.destination.page));
             break;
 
-        case LV_PMAN_STACK_MSG_TAG_CHANGE_PAGE_EXTRA:
-            lv_pman_change_page_extra(pman, *((lv_pman_page_t *)msg.vmsg.as.destination.page),
-                                      msg.vmsg.as.destination.extra);
+        case PMAN_STACK_MSG_TAG_CHANGE_PAGE_EXTRA:
+            pman_change_page_extra(pman, *((pman_page_t *)msg.stack_msg.as.destination.page),
+                                   msg.stack_msg.as.destination.extra);
             break;
 
-        case LV_PMAN_STACK_MSG_TAG_BACK:
-            lv_pman_back(pman);
+        case PMAN_STACK_MSG_TAG_BACK:
+            pman_back(pman);
             break;
 
-        case LV_PMAN_STACK_MSG_TAG_REBASE:
-            lv_pman_rebase_page(pman, *((lv_pman_page_t *)msg.vmsg.as.destination.page));
+        case PMAN_STACK_MSG_TAG_REBASE:
+            pman_rebase_page(pman, *((pman_page_t *)msg.stack_msg.as.destination.page));
             break;
 
-        case LV_PMAN_STACK_MSG_TAG_SWAP:
-            lv_pman_swap_page(pman, *((lv_pman_page_t *)msg.vmsg.as.destination.page));
+        case PMAN_STACK_MSG_TAG_SWAP:
+            pman_swap_page(pman, *((pman_page_t *)msg.stack_msg.as.destination.page));
             break;
 
-        case LV_PMAN_STACK_MSG_TAG_SWAP_EXTRA:
-            lv_pman_swap_page_extra(pman, *((lv_pman_page_t *)msg.vmsg.as.destination.page),
-                                    msg.vmsg.as.destination.extra);
+        case PMAN_STACK_MSG_TAG_SWAP_EXTRA:
+            pman_swap_page_extra(pman, *((pman_page_t *)msg.stack_msg.as.destination.page),
+                                 msg.stack_msg.as.destination.extra);
             break;
 
-        case LV_PMAN_STACK_MSG_TAG_RESET_TO:
-            lv_pman_reset_to_page_id(pman, msg.vmsg.as.id, NULL);
+        case PMAN_STACK_MSG_TAG_RESET_TO:
+            pman_reset_to_page_id(pman, msg.stack_msg.as.id, NULL);
             break;
 
-        case LV_PMAN_STACK_MSG_TAG_NOTHING:
+        case PMAN_STACK_MSG_TAG_NOTHING:
             break;
     }
 
@@ -296,17 +296,17 @@ void *lv_pman_process_page_event(lv_pman_t *pman, lv_pman_event_t event) {
 }
 
 
-void lv_pman_unregister_obj_event(lv_pman_handle_t handle, lv_obj_t *obj) {
+void pman_unregister_obj_event(pman_handle_t handle, lv_obj_t *obj) {
     lv_obj_remove_event_cb(obj, event_callback);
 }
 
 
-void lv_pman_register_obj_event(lv_pman_handle_t handle, lv_obj_t *obj, lv_event_code_t event) {
+void pman_register_obj_event(pman_handle_t handle, lv_obj_t *obj, lv_event_code_t event) {
     lv_obj_add_event_cb(obj, event_callback, event, handle);
 }
 
 
-void lv_pman_set_obj_self_destruct(lv_obj_t *obj) {
+void pman_set_obj_self_destruct(lv_obj_t *obj) {
     lv_obj_remove_event_cb(obj, free_user_data_callback);
     lv_obj_add_event_cb(obj, free_user_data_callback, LV_EVENT_DELETE, NULL);
 }
@@ -319,8 +319,8 @@ void lv_pman_set_obj_self_destruct(lv_obj_t *obj) {
  * @param handle
  * @return void*
  */
-void *lv_pman_get_user_data(lv_pman_handle_t handle) {
-    lv_pman_t *pman = handle;
+void *pman_get_user_data(pman_handle_t handle) {
+    pman_t *pman = handle;
     return pman->user_data;
 }
 
@@ -331,7 +331,7 @@ void *lv_pman_get_user_data(lv_pman_handle_t handle) {
  * @param pman
  * @param event
  */
-void lv_pman_event(lv_pman_t *pman, lv_pman_event_t event) {
+void pman_event(pman_t *pman, pman_event_t event) {
     page_subscription_cb(pman, event);
 }
 
@@ -343,7 +343,7 @@ void lv_pman_event(lv_pman_t *pman, lv_pman_event_t event) {
  * @param state
  * @param extra
  */
-void lv_pman_destroy_all(void *state, void *extra) {
+void pman_destroy_all(void *state, void *extra) {
     (void)extra;
     lv_mem_free(state);
 }
@@ -355,14 +355,14 @@ void lv_pman_destroy_all(void *state, void *extra) {
  * @param state
  * @param extra
  */
-void lv_pman_close_all(void *state) {
+void pman_close_all(void *state) {
     (void)state;
     lv_obj_clean(lv_scr_act());
 }
 
 
-lv_pman_timer_t *lv_pman_timer_create(lv_pman_handle_t handle, uint32_t period, void *user_data) {
-    lv_pman_timer_t *timer = lv_mem_alloc(sizeof(lv_pman_timer_t));
+pman_timer_t *pman_timer_create(pman_handle_t handle, uint32_t period, void *user_data) {
+    pman_timer_t *timer = lv_mem_alloc(sizeof(pman_timer_t));
     if (timer == NULL) {
         return NULL;
     }
@@ -376,13 +376,13 @@ lv_pman_timer_t *lv_pman_timer_create(lv_pman_handle_t handle, uint32_t period, 
 }
 
 
-void lv_pman_timer_delete(lv_pman_timer_t *timer) {
+void pman_timer_delete(pman_timer_t *timer) {
     lv_timer_del(timer->timer);
     lv_mem_free(timer);
 }
 
 
-void *lv_pman_timer_get_user_data(lv_pman_timer_t *timer) {
+void *pman_timer_get_user_data(pman_timer_t *timer) {
     return timer->user_data;
 }
 
@@ -405,11 +405,11 @@ DEFINE_TIMER_WRAPPER_ARG(set_repeat_count, uint32_t)
  *
  * @param pman
  */
-static void reset_page(lv_pman_t *pman) {
-    lv_pman_page_t *current = lv_pman_page_stack_top(&pman->page_stack);
+static void reset_page(pman_t *pman) {
+    pman_page_t *current = pman_page_stack_top(&pman->page_stack);
     assert(current != NULL);
 
-    lv_pman_event(pman, (lv_pman_event_t){.tag = LV_PMAN_EVENT_TAG_OPEN});
+    pman_event(pman, (pman_event_t){.tag = PMAN_EVENT_TAG_OPEN});
     wait_release(pman);
 }
 
@@ -419,10 +419,10 @@ static void reset_page(lv_pman_t *pman) {
  *
  * @param pman
  */
-static void clear_page_stack(lv_pman_t *pman) {
-    lv_pman_page_t page;
+static void clear_page_stack(pman_t *pman) {
+    pman_page_t page;
 
-    while (lv_pman_page_stack_pop(&pman->page_stack, &page) == 0) {
+    while (pman_page_stack_pop(&pman->page_stack, &page) == 0) {
         destroy_page(&page);
     }
 }
@@ -433,7 +433,7 @@ static void clear_page_stack(lv_pman_t *pman) {
  *
  * @param pman
  */
-static void wait_release(lv_pman_t *pman) {
+static void wait_release(pman_t *pman) {
     if (pman->touch_indev != NULL) {
         lv_indev_wait_release(pman->touch_indev);
     }
@@ -460,8 +460,8 @@ static void free_user_data_callback(lv_event_t *event) {
  * @param pman
  * @param event
  */
-static void page_subscription_cb(lv_pman_t *pman, lv_pman_event_t event) {
-    void *user_msg = lv_pman_process_page_event(pman, event);
+static void page_subscription_cb(pman_t *pman, pman_event_t event) {
+    void *user_msg = pman_process_page_event(pman, event);
     pman->user_msg_cb(pman, user_msg);
 }
 
@@ -472,12 +472,12 @@ static void page_subscription_cb(lv_pman_t *pman, lv_pman_event_t event) {
  * @param event
  */
 static void event_callback(lv_event_t *event) {
-    lv_pman_event_t pman_event = {
-        .tag = LV_PMAN_EVENT_TAG_LVGL,
+    pman_event_t pman_event = {
+        .tag = PMAN_EVENT_TAG_LVGL,
         .as  = {.lvgl = event},
     };
 
-    lv_pman_handle_t handle = lv_event_get_user_data(event);
+    pman_handle_t handle = lv_event_get_user_data(event);
     page_subscription_cb(handle, pman_event);
 }
 
@@ -488,10 +488,10 @@ static void event_callback(lv_event_t *event) {
  * @param timer
  */
 static void timer_callback(lv_timer_t *timer) {
-    lv_pman_timer_t *pman_timer = timer->user_data;
+    pman_timer_t *pman_timer = timer->user_data;
 
-    lv_pman_event_t pman_event = {
-        .tag = LV_PMAN_EVENT_TAG_TIMER,
+    pman_event_t pman_event = {
+        .tag = PMAN_EVENT_TAG_TIMER,
         .as  = {.timer = pman_timer},
     };
 
@@ -509,7 +509,7 @@ static void timer_callback(lv_timer_t *timer) {
  *
  * @param page
  */
-static void destroy_page(lv_pman_page_t *page) {
+static void destroy_page(pman_page_t *page) {
     if (page->destroy) {
         page->destroy(page->state, page->extra);
     }
@@ -522,7 +522,7 @@ static void destroy_page(lv_pman_page_t *page) {
  * @param handle
  * @param page
  */
-static void open_page(lv_pman_handle_t handle, lv_pman_page_t *page) {
+static void open_page(pman_handle_t handle, pman_page_t *page) {
     if (page->open) {
         page->open(handle, page->state);
     }
@@ -534,7 +534,7 @@ static void open_page(lv_pman_handle_t handle, lv_pman_page_t *page) {
  *
  * @param page
  */
-static void close_page(lv_pman_page_t *page) {
+static void close_page(pman_page_t *page) {
     if (page->close) {
         page->close(page->state);
     }
