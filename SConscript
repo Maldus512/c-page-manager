@@ -9,5 +9,6 @@ sources = [lv_pman_env.Object(filename) for filename in Glob(
 
 lib = lv_pman_env.Library(LIBRARY, sources)
 
-result = (lib, [os.getcwd()])
+path = Dir('.').srcnode().abspath
+result = (lib, [path])
 Return('result')
