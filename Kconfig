@@ -1,0 +1,9 @@
+menu "Page manager"
+    config PMAN_PAGE_STACK_DEPTH
+        int "Maximum pages in the page manager stack"
+        default 16 
+        help 
+            The page manager magages a stack of pages which is statically allocated; 
+            this is the maximum number of possible pages in it.
+
+endmenu
