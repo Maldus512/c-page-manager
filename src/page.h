@@ -49,7 +49,7 @@ typedef struct {
  *
  */
 typedef struct {
-    void               *user_msg;
+    void            *user_msg;
     pman_stack_msg_t stack_msg;
 } pman_msg_t;
 
@@ -59,6 +59,13 @@ typedef struct {
  *
  */
 typedef void *pman_handle_t;
+
+
+typedef struct {
+    pman_handle_t handle;
+    void         *user_data;
+    lv_timer_t   *timer;
+} pman_timer_t;
 
 
 /**
@@ -80,9 +87,9 @@ typedef enum {
 typedef struct {
     pman_event_tag_t tag;
     union {
-        lv_event_t      *lvgl;
+        lv_event_t   *lvgl;
         pman_timer_t *timer;
-        void            *user;
+        void         *user;
     } as;
 } pman_event_t;
 

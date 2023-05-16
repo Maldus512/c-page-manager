@@ -5,7 +5,4 @@
 #include "lvgl.h"
 
 
-typedef struct pman_timer pman_timer_t;
-
-
 #endif

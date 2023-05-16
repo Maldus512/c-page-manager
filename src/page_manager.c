@@ -11,12 +11,6 @@
     void pman_timer_##fun(pman_timer_t *timer, type arg) { lv_timer_##fun(timer->timer, arg); }
 
 
-struct pman_timer {
-    pman_handle_t handle;
-    void         *user_data;
-    lv_timer_t   *timer;
-};
-
 
 static void clear_page_stack(pman_t *pman);
 static void wait_release(pman_t *pman);
