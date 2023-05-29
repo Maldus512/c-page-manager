@@ -252,11 +252,11 @@ void *pman_process_page_event(pman_t *pman, pman_event_t event) {
     pman_msg_t msg = current->process_event(pman, current->state, event);
 
     switch (msg.stack_msg.tag) {
-        case PMAN_STACK_MSG_TAG_CHANGE_PAGE:
+        case PMAN_STACK_MSG_TAG_PUSH_PAGE:
             pman_change_page(pman, *((pman_page_t *)msg.stack_msg.as.destination.page));
             break;
 
-        case PMAN_STACK_MSG_TAG_CHANGE_PAGE_EXTRA:
+        case PMAN_STACK_MSG_TAG_PUSH_PAGE_EXTRA:
             pman_change_page_extra(pman, *((pman_page_t *)msg.stack_msg.as.destination.page),
                                    msg.stack_msg.as.destination.extra);
             break;
@@ -364,6 +364,7 @@ pman_timer_t *pman_timer_create(pman_handle_t handle, uint32_t period, void *use
     timer->handle    = handle;
     timer->user_data = user_data;
     timer->timer     = lv_timer_create(timer_callback, period, timer);
+    lv_timer_set_repeat_count(timer->timer, -1);
     lv_timer_pause(timer->timer);
 
     return timer;
@@ -489,12 +490,12 @@ static void timer_callback(lv_timer_t *timer) {
         .as  = {.timer = pman_timer},
     };
 
-    page_subscription_cb(pman_timer->handle, pman_event);
-
     // If the timer should be destroyed free the accompanying data
     if (timer->repeat_count == 0) {
         lv_mem_free(pman_timer);
     }
+
+    page_subscription_cb(pman_timer->handle, pman_event);
 }
 
 

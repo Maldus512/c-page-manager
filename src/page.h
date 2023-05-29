@@ -11,19 +11,32 @@
 #define PMAN_USER_EVENT(ptr) ((pman_event_t){.tag = PMAN_EVENT_TAG_USER, .as = {.user = ptr}})
 
 
+#define PMAN_STACK_MSG_BACK() ((pman_stack_msg_t){.tag = PMAN_STACK_MSG_TAG_BACK})
+#define PMAN_STACK_MSG_PUSH_PAGE(page_to_push)                                                                         \
+    ((pman_stack_msg_t){.tag = PMAN_STACK_MSG_TAG_PUSH_PAGE, .as = {.destination = {.page = page_to_push}}})
+#define PMAN_STACK_MSG_PUSH_PAGE_EXTRA(page_to_push, extra_ptr)                                                        \
+    ((pman_stack_msg_t){.tag = PMAN_STACK_MSG_TAG_PUSH_PAGE_EXTRA,                                                     \
+                        .as  = {.destination = {.page = page_to_push, .extra = extra_ptr}}})
+#define PMAN_STACK_MSG_SWAP(page_to_swap)                                                                              \
+    ((pman_stack_msg_t){.tag = PMAN_STACK_MSG_TAG_SWAP, .as = {.destination = {.page = page_to_swap}}})
+#define PMAN_STACK_MSG_SWAP_EXTRA(page_to_swap, extra_ptr)                                                             \
+    ((pman_stack_msg_t){.tag = PMAN_STACK_MSG_TAG_SWAP_EXTRA,                                                          \
+                        .as  = {.destination = {.page = page_to_swap, .extra = extra_ptr}}})
+
+
 /**
  * @brief Tags for view messages (i.e. commands that act on the page stack)
  *
  */
 typedef enum {
-    PMAN_STACK_MSG_TAG_NOTHING = 0,           // Do nothing
-    PMAN_STACK_MSG_TAG_BACK,                  // Go back to the previous page
-    PMAN_STACK_MSG_TAG_REBASE,                // Rebase to a new page
-    PMAN_STACK_MSG_TAG_RESET_TO,              // Reset to a previous page
-    PMAN_STACK_MSG_TAG_CHANGE_PAGE,           // Change to a new page
-    PMAN_STACK_MSG_TAG_CHANGE_PAGE_EXTRA,     // Change to a new page, with an extra argument
-    PMAN_STACK_MSG_TAG_SWAP,                  // Swap with a new page
-    PMAN_STACK_MSG_TAG_SWAP_EXTRA,            // Swap with a new page, with an extra argument
+    PMAN_STACK_MSG_TAG_NOTHING = 0,         // Do nothing
+    PMAN_STACK_MSG_TAG_BACK,                // Go back to the previous page
+    PMAN_STACK_MSG_TAG_REBASE,              // Rebase to a new page
+    PMAN_STACK_MSG_TAG_RESET_TO,            // Reset to a previous page
+    PMAN_STACK_MSG_TAG_PUSH_PAGE,           // Change to a new page
+    PMAN_STACK_MSG_TAG_PUSH_PAGE_EXTRA,     // Change to a new page, with an extra argument
+    PMAN_STACK_MSG_TAG_SWAP,                // Swap with a new page
+    PMAN_STACK_MSG_TAG_SWAP_EXTRA,          // Swap with a new page, with an extra argument
 } pman_stack_msg_tag_t;
 
 

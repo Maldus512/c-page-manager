@@ -45,19 +45,18 @@ void  pman_event(pman_t *pman, pman_event_t event);
 void  pman_register_obj_event(pman_handle_t handle, lv_obj_t *obj, lv_event_code_t event);
 void  pman_unregister_obj_event(pman_handle_t handle, lv_obj_t *obj);
 void  pman_set_obj_self_destruct(lv_obj_t *obj);
-void  pman_register_obj_id_and_number(pman_handle_t handle, lv_obj_t *obj, int id, int number);
 void  pman_destroy_all(void *state, void *extra);
 void  pman_close_all(void *state);
 void *pman_get_user_data(pman_handle_t handle);
 
-void *pman_timer_get_user_data(pman_timer_t *timer);
+void         *pman_timer_get_user_data(pman_timer_t *timer);
 pman_timer_t *pman_timer_create(pman_handle_t handle, uint32_t period, void *user_data);
-void pman_timer_delete(pman_timer_t *timer);
-void pman_timer_ready(pman_timer_t *timer);
-void pman_timer_resume(pman_timer_t *timer);
-void pman_timer_reset(pman_timer_t *timer);
-void pman_timer_pause(pman_timer_t *timer);
-void pman_timer_set_period(pman_timer_t *timer, uint32_t arg);
-void pman_timer_set_repeat_count(pman_timer_t *timer, uint32_t arg);
+void          pman_timer_delete(pman_timer_t *timer);
+void          pman_timer_ready(pman_timer_t *timer);
+void          pman_timer_resume(pman_timer_t *timer);
+void          pman_timer_reset(pman_timer_t *timer);
+void          pman_timer_pause(pman_timer_t *timer);
+void          pman_timer_set_period(pman_timer_t *timer, uint32_t arg);
+void          pman_timer_set_repeat_count(pman_timer_t *timer, uint32_t arg);
 
 #endif
