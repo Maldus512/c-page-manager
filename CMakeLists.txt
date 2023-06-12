@@ -1,2 +1,11 @@
-idf_component_register(SRC_DIRS src
-                    INCLUDE_DIRS .)
+if(CONFIG_PMAN_PAGE_STACK_DEPTH)
+    add_definitions("-DPMAN_PAGE_STACK_DEPTH=${CONFIG_PMAN_PAGE_STACK_DEPTH}")
+endif()
+
+SET(MODULES "src")
+SET(INCLUDES .)
+
+idf_component_register(
+    SRC_DIRS ${MODULES}
+    INCLUDE_DIRS ${INCLUDES} 
+)
