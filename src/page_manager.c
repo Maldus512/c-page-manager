@@ -15,13 +15,15 @@
 static void clear_page_stack(pman_t *pman);
 static void wait_release(pman_t *pman);
 static void reset_page(pman_t *pman);
-static void free_user_data_callback(lv_event_t *event);
 static void page_subscription_cb(pman_t *pman, pman_event_t event);
-static void event_callback(lv_event_t *event);
-static void timer_callback(lv_timer_t *timer);
 static void open_page(pman_handle_t handle, pman_page_t *page);
 static void close_page(pman_page_t *page);
 static void destroy_page(pman_page_t *page);
+#ifndef PMAN_EXCLUDE_LVGL
+static void free_user_data_callback(lv_event_t *event);
+static void event_callback(lv_event_t *event);
+static void timer_callback(lv_timer_t *timer);
+#endif
 
 
 /**
@@ -32,8 +34,14 @@ static void destroy_page(pman_page_t *page);
  * @param indev optional input device reference
  * @param user_msg_cb function to handle user messages
  */
-void pman_init(pman_t *pman, void *user_data, lv_indev_t *indev, pman_user_msg_cb_t user_msg_cb) {
+void pman_init(pman_t *pman, void *user_data,
+#ifndef PMAN_EXCLUDE_LVGL
+               lv_indev_t *indev,
+#endif
+               pman_user_msg_cb_t user_msg_cb) {
+#ifndef PMAN_EXCLUDE_LVGL
     pman->touch_indev = indev;
+#endif
     pman->user_data   = user_data;
     pman->user_msg_cb = user_msg_cb;
 
@@ -290,6 +298,7 @@ void *pman_process_page_event(pman_t *pman, pman_event_t event) {
 }
 
 
+#ifndef PMAN_EXCLUDE_LVGL
 void pman_unregister_obj_event(pman_handle_t handle, lv_obj_t *obj) {
     lv_obj_remove_event_cb(obj, event_callback);
 }
@@ -304,7 +313,7 @@ void pman_set_obj_self_destruct(lv_obj_t *obj) {
     lv_obj_remove_event_cb(obj, free_user_data_callback);
     lv_obj_add_event_cb(obj, free_user_data_callback, LV_EVENT_DELETE, NULL);
 }
-
+#endif
 
 
 /**
@@ -339,7 +348,9 @@ void pman_event(pman_t *pman, pman_event_t event) {
  */
 void pman_destroy_all(void *state, void *extra) {
     (void)extra;
+#ifndef PMAN_EXCLUDE_LVGL
     lv_mem_free(state);
+#endif
 }
 
 
@@ -351,10 +362,13 @@ void pman_destroy_all(void *state, void *extra) {
  */
 void pman_close_all(void *state) {
     (void)state;
+#ifndef PMAN_EXCLUDE_LVGL
     lv_obj_clean(lv_scr_act());
+#endif
 }
 
 
+#ifndef PMAN_EXCLUDE_LVGL
 pman_timer_t *pman_timer_create(pman_handle_t handle, uint32_t period, void *user_data) {
     pman_timer_t *timer = lv_mem_alloc(sizeof(pman_timer_t));
     if (timer == NULL) {
@@ -387,6 +401,7 @@ DEFINE_TIMER_WRAPPER(reset)
 DEFINE_TIMER_WRAPPER(pause)
 DEFINE_TIMER_WRAPPER_ARG(set_period, uint32_t)
 DEFINE_TIMER_WRAPPER_ARG(set_repeat_count, uint32_t)
+#endif
 
 
 /*
@@ -428,12 +443,15 @@ static void clear_page_stack(pman_t *pman) {
  * @param pman
  */
 static void wait_release(pman_t *pman) {
+#ifndef PMAN_EXCLUDE_LVGL
     if (pman->touch_indev != NULL) {
         lv_indev_wait_release(pman->touch_indev);
     }
+#endif
 }
 
 
+#ifndef PMAN_EXCLUDE_LVGL
 /**
  * @brief Callback that frees the user data associated with an object. To be tied to the LV_EVENT_DELETE event.
  *
@@ -446,6 +464,7 @@ static void free_user_data_callback(lv_event_t *event) {
         lv_mem_free(data);
     }
 }
+#endif
 
 
 /**
@@ -460,6 +479,7 @@ static void page_subscription_cb(pman_t *pman, pman_event_t event) {
 }
 
 
+#ifndef PMAN_EXCLUDE_LVGL
 /**
  * @brief LVGL events callback
  *
@@ -496,6 +516,7 @@ static void timer_callback(lv_timer_t *timer) {
         lv_mem_free(pman_timer);
     }
 }
+#endif
 
 
 /**
