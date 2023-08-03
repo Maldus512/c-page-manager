@@ -8,4 +8,5 @@ SET(INCLUDES .)
 idf_component_register(
     SRC_DIRS ${MODULES}
     INCLUDE_DIRS ${INCLUDES} 
+    REQUIRES lvgl
 )
