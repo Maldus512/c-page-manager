@@ -6,9 +6,13 @@
 
 
 #define DEFINE_TIMER_WRAPPER(fun)                                                                                      \
-    void pman_timer_##fun(pman_timer_t *timer) { lv_timer_##fun(timer->timer); }
+    void pman_timer_##fun(pman_timer_t *timer) {                                                                       \
+        lv_timer_##fun(timer->timer);                                                                                  \
+    }
 #define DEFINE_TIMER_WRAPPER_ARG(fun, type)                                                                            \
-    void pman_timer_##fun(pman_timer_t *timer, type arg) { lv_timer_##fun(timer->timer, arg); }
+    void pman_timer_##fun(pman_timer_t *timer, type arg) {                                                             \
+        lv_timer_##fun(timer->timer, arg);                                                                             \
+    }
 
 
 
@@ -17,7 +21,7 @@ static void wait_release(pman_t *pman);
 static void reset_page(pman_t *pman);
 static void page_subscription_cb(pman_t *pman, pman_event_t event);
 static void open_page(pman_handle_t handle, pman_page_t *page);
-static void close_page(pman_page_t *page);
+static void close_page(pman_t *pman, pman_page_t *page);
 static void destroy_page(pman_page_t *page);
 #ifndef PMAN_EXCLUDE_LVGL
 static void free_user_data_callback(lv_event_t *event);
@@ -33,17 +37,19 @@ static void timer_callback(lv_timer_t *timer);
  * @param user_data user pointer
  * @param indev optional input device reference
  * @param user_msg_cb function to handle user messages
+ * @param close_global_cb if not NULL, called every time a page is closed
  */
 void pman_init(pman_t *pman, void *user_data,
 #ifndef PMAN_EXCLUDE_LVGL
                lv_indev_t *indev,
 #endif
-               pman_user_msg_cb_t user_msg_cb) {
+               pman_user_msg_cb_t user_msg_cb, void (*close_global_cb)(void *, void *)) {
 #ifndef PMAN_EXCLUDE_LVGL
     pman->touch_indev = indev;
 #endif
-    pman->user_data   = user_data;
-    pman->user_msg_cb = user_msg_cb;
+    pman->user_data       = user_data;
+    pman->user_msg_cb     = user_msg_cb;
+    pman->close_global_cb = close_global_cb;
 
     pman_page_stack_init(&pman->page_stack);
 }
@@ -67,7 +73,7 @@ void pman_swap_page_extra(pman_t *pman, pman_page_t newpage, void *extra) {
     pman_page_t *current = pman_page_stack_top(&pman->page_stack);
     assert(current != NULL);
 
-    close_page(current);
+    close_page(pman, current);
     destroy_page(current);
 
     pman_page_stack_pop(&pman->page_stack, NULL);
@@ -117,7 +123,7 @@ void pman_reset_to_page_id(pman_t *pman, int id, uint8_t *found) {
     pman_page_t *current = pman_page_stack_top(&pman->page_stack);
     assert(current != NULL);
 
-    close_page(current);
+    close_page(pman, current);
 
     do {
         if (current->id == id) {
@@ -149,7 +155,7 @@ void pman_rebase_page_extra(pman_t *pman, pman_page_t newpage, void *extra) {
     pman_page_t *current = pman_page_stack_top(&pman->page_stack);
     assert(current != NULL);
 
-    close_page(current);
+    close_page(pman, current);
     clear_page_stack(pman);
 
     current = pman_page_stack_push(&pman->page_stack, &newpage);
@@ -192,7 +198,7 @@ void pman_rebase_page(pman_t *pman, pman_page_t newpage) {
 void pman_change_page_extra(pman_t *pman, pman_page_t newpage, void *extra) {
     pman_page_t *current = pman_page_stack_top(&pman->page_stack);
     if (current != NULL) {
-        close_page(current);
+        close_page(pman, current);
     }
 
     current = pman_page_stack_push(&pman->page_stack, &newpage);
@@ -229,7 +235,7 @@ void pman_back(pman_t *pman) {
     pman_page_t page;
 
     if (pman_page_stack_pop(&pman->page_stack, &page) == 0) {
-        close_page(&page);
+        close_page(pman, &page);
         destroy_page(&page);
 
         pman_page_t *current = pman_page_stack_top(&pman->page_stack);
@@ -299,7 +305,7 @@ void *pman_process_page_event(pman_t *pman, pman_event_t event) {
 
 
 #ifndef PMAN_EXCLUDE_LVGL
-void pman_unregister_obj_event(pman_handle_t handle, lv_obj_t *obj) {
+void pman_unregister_obj_event(lv_obj_t *obj) {
     lv_obj_remove_event_cb(obj, event_callback);
 }
 
@@ -510,12 +516,12 @@ static void timer_callback(lv_timer_t *timer) {
         .as  = {.timer = pman_timer},
     };
 
+    page_subscription_cb(pman_timer->handle, pman_event);
+
     // If the timer should be destroyed free the accompanying data
     if (timer->repeat_count == 0) {
         lv_mem_free(pman_timer);
     }
-
-    page_subscription_cb(pman_timer->handle, pman_event);
 }
 #endif
 
@@ -548,9 +554,13 @@ static void open_page(pman_handle_t handle, pman_page_t *page) {
 /**
  * @brief Closes a page
  *
+ * @param pman
  * @param page
  */
-static void close_page(pman_page_t *page) {
+static void close_page(pman_t *pman, pman_page_t *page) {
+    if (pman->close_global_cb != NULL) {
+        pman->close_global_cb(pman->user_data, page->state);
+    }
     if (page->close) {
         page->close(page->state);
     }

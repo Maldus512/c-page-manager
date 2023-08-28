@@ -31,6 +31,9 @@ typedef struct {
     // Callback to process user messages (i.e. system commands)
     pman_user_msg_cb_t user_msg_cb;
 
+    // If present, called every time a page is closed
+    void (*close_global_cb)(void *, void *);
+
     // User pointer
     void *user_data;
 } pman_t;
@@ -40,7 +43,7 @@ void pman_init(pman_t *pman, void *user_data,
 #ifndef PMAN_EXCLUDE_LVGL
                lv_indev_t *indev,
 #endif
-               pman_user_msg_cb_t user_msg_cb);
+               pman_user_msg_cb_t user_msg_cb, void (*close_global_cb)(void *, void *));
 void  pman_change_page(pman_t *pman, pman_page_t page);
 void  pman_change_page_extra(pman_t *pman, pman_page_t newpage, void *extra);
 void  pman_back(pman_t *pman);
@@ -55,7 +58,7 @@ void  pman_close_all(void *state);
 void *pman_get_user_data(pman_handle_t handle);
 #ifndef PMAN_EXCLUDE_LVGL
 void pman_register_obj_event(pman_handle_t handle, lv_obj_t *obj, lv_event_code_t event);
-void pman_unregister_obj_event(pman_handle_t handle, lv_obj_t *obj);
+void pman_unregister_obj_event(lv_obj_t *obj);
 void pman_set_obj_self_destruct(lv_obj_t *obj);
 void pman_register_obj_id_and_number(pman_handle_t handle, lv_obj_t *obj, int id, int number);
 
