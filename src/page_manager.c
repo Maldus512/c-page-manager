@@ -84,7 +84,7 @@ void pman_swap_page_extra(pman_t *pman, pman_page_t newpage, void *extra) {
     current->extra = extra;
     // Create the newpage
     if (current->create) {
-        current->state = current->create(pman->user_data, current->extra);
+        current->state = current->create(pman, current->extra);
     } else {
         current->state = NULL;
     }
