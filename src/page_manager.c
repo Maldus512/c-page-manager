@@ -143,9 +143,19 @@ void pman_reset_to_page_id(pman_t *pman, int id, uint8_t *found) {
 }
 
 
+uint8_t pman_is_current_page_id(pman_t *pman, int id) {
+    pman_page_t *current = pman_page_stack_top(&pman->page_stack);
+    if (current == NULL) {
+        return 0;
+    } else {
+        return current->id == id;
+    }
+}
+
+
 /**
- * @brief Clears the whole stack and adds a new page, passing also the extra argument. All previous pages are closed and
- * destroyed
+ * @brief Clears the whole stack and adds a new page, passing also the extra argument. All previous pages are closed
+ * and destroyed
  *
  * @param pman
  * @param newpage
@@ -188,8 +198,8 @@ void pman_rebase_page(pman_t *pman, pman_page_t newpage) {
 
 
 /**
- * @brief Changes the current page passing also the extra argument, adding it on top of the stack. The previous page is
- * closed.
+ * @brief Changes the current page passing also the extra argument, adding it on top of the stack. The previous page
+ * is closed.
  *
  * @param pman
  * @param newpage
@@ -346,8 +356,8 @@ void pman_event(pman_t *pman, pman_event_t event) {
 
 
 /**
- * @brief Utility function to be assigned to the "destroy" page callback. It clears all page state (attempting to free
- * it)
+ * @brief Utility function to be assigned to the "destroy" page callback. It clears all page state (attempting to
+ * free it)
  *
  * @param state
  * @param extra
