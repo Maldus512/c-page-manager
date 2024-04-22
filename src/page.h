@@ -4,7 +4,9 @@
 
 #include "page_manager_conf.h"
 #include "page_manager_timer.h"
+#ifndef PMAN_EXCLUDE_LVGL
 #include "lvgl.h"
+#endif
 
 
 #define PMAN_MSG_NULL        ((pman_msg_t){.user_msg = NULL, .stack_msg = {.tag = PMAN_STACK_MSG_TAG_NOTHING}})
@@ -74,11 +76,13 @@ typedef struct {
 typedef void *pman_handle_t;
 
 
+#ifndef PMAN_EXCLUDE_LVGL
 typedef struct {
     pman_handle_t handle;
     void         *user_data;
     lv_timer_t   *timer;
 } pman_timer_t;
+#endif
 
 
 /**
@@ -86,10 +90,12 @@ typedef struct {
  *
  */
 typedef enum {
-    PMAN_EVENT_TAG_LVGL = 0,
-    PMAN_EVENT_TAG_OPEN,
-    PMAN_EVENT_TAG_TIMER,
+    PMAN_EVENT_TAG_OPEN = 0,
     PMAN_EVENT_TAG_USER,
+#ifndef PMAN_EXCLUDE_LVGL
+    PMAN_EVENT_TAG_LVGL,
+    PMAN_EVENT_TAG_TIMER,
+#endif
 } pman_event_tag_t;
 
 
@@ -100,8 +106,10 @@ typedef enum {
 typedef struct {
     pman_event_tag_t tag;
     union {
-        lv_event_t   *lvgl;
+#ifndef PMAN_EXCLUDE_LVGL
+        lv_event_t *lvgl;
         pman_timer_t *timer;
+#endif
         void         *user;
     } as;
 } pman_event_t;
