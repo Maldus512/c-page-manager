@@ -27,12 +27,15 @@ typedef struct {
     // Callback to process user messages (i.e. system commands)
     pman_user_msg_cb_t user_msg_cb;
 
+    void (*close_cb)(void *handle);
+
     // User pointer
     void *user_data;
 } pman_t;
 
 
-void  pman_init(pman_t *pman, void *user_data, lv_indev_t *indev, pman_user_msg_cb_t user_msg_cb);
+void  pman_init(pman_t *pman, void *user_data, lv_indev_t *indev, pman_user_msg_cb_t user_msg_cb,
+                void (*close_cb)(void *handle));
 void  pman_change_page(pman_t *pman, pman_page_t page);
 void  pman_change_page_extra(pman_t *pman, pman_page_t newpage, void *extra);
 void  pman_back(pman_t *pman);
@@ -48,6 +51,7 @@ void  pman_set_obj_self_destruct(lv_obj_t *obj);
 void  pman_destroy_all(void *state, void *extra);
 void  pman_close_all(void *state);
 void *pman_get_user_data(pman_handle_t handle);
+int   pman_get_current_page_id(pman_t *pman);
 
 void         *pman_timer_get_user_data(pman_timer_t *timer);
 pman_timer_t *pman_timer_create(pman_handle_t handle, uint32_t period, void *user_data);

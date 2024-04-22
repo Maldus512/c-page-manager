@@ -20,7 +20,7 @@ static void page_subscription_cb(pman_t *pman, pman_event_t event);
 static void event_callback(lv_event_t *event);
 static void timer_callback(lv_timer_t *timer);
 static void open_page(pman_handle_t handle, pman_page_t *page);
-static void close_page(pman_page_t *page);
+static void close_page(pman_t *pman, pman_page_t *page);
 static void destroy_page(pman_page_t *page);
 
 
@@ -31,11 +31,14 @@ static void destroy_page(pman_page_t *page);
  * @param user_data user pointer
  * @param indev optional input device reference
  * @param user_msg_cb function to handle user messages
+ * @param close_cb function to be called after every page close (optional)
  */
-void pman_init(pman_t *pman, void *user_data, lv_indev_t *indev, pman_user_msg_cb_t user_msg_cb) {
+void pman_init(pman_t *pman, void *user_data, lv_indev_t *indev, pman_user_msg_cb_t user_msg_cb,
+               void (*close_cb)(void *handle)) {
     pman->touch_indev = indev;
     pman->user_data   = user_data;
     pman->user_msg_cb = user_msg_cb;
+    pman->close_cb    = close_cb;
 
     pman_page_stack_init(&pman->page_stack);
 }
@@ -59,7 +62,7 @@ void pman_swap_page_extra(pman_t *pman, pman_page_t newpage, void *extra) {
     pman_page_t *current = pman_page_stack_top(&pman->page_stack);
     assert(current != NULL);
 
-    close_page(current);
+    close_page(pman, current);
     destroy_page(current);
 
     pman_page_stack_pop(&pman->page_stack, NULL);
@@ -93,6 +96,13 @@ void pman_swap_page(pman_t *pman, pman_page_t newpage) {
 }
 
 
+int pman_get_current_page_id(pman_t *pman) {
+    pman_page_t *current = pman_page_stack_top(&pman->page_stack);
+    assert(current != NULL);
+    return current->id;
+}
+
+
 /**
  * @brief Reset the page stack to the highest instance of page with the corresponding id. All pages until the target are
  * closed and destroyed. If no such page is found, clears the whole stack.
@@ -109,7 +119,7 @@ void pman_reset_to_page_id(pman_t *pman, int id, uint8_t *found) {
     pman_page_t *current = pman_page_stack_top(&pman->page_stack);
     assert(current != NULL);
 
-    close_page(current);
+    close_page(pman, current);
 
     do {
         if (current->id == id) {
@@ -141,7 +151,7 @@ void pman_rebase_page_extra(pman_t *pman, pman_page_t newpage, void *extra) {
     pman_page_t *current = pman_page_stack_top(&pman->page_stack);
     assert(current != NULL);
 
-    close_page(current);
+    close_page(pman, current);
     clear_page_stack(pman);
 
     current = pman_page_stack_push(&pman->page_stack, &newpage);
@@ -184,7 +194,7 @@ void pman_rebase_page(pman_t *pman, pman_page_t newpage) {
 void pman_change_page_extra(pman_t *pman, pman_page_t newpage, void *extra) {
     pman_page_t *current = pman_page_stack_top(&pman->page_stack);
     if (current != NULL) {
-        close_page(current);
+        close_page(pman, current);
     }
 
     current = pman_page_stack_push(&pman->page_stack, &newpage);
@@ -221,7 +231,7 @@ void pman_back(pman_t *pman) {
     pman_page_t page;
 
     if (pman_page_stack_pop(&pman->page_stack, &page) == 0) {
-        close_page(&page);
+        close_page(pman, &page);
         destroy_page(&page);
 
         pman_page_t *current = pman_page_stack_top(&pman->page_stack);
@@ -291,6 +301,7 @@ void *pman_process_page_event(pman_t *pman, pman_event_t event) {
 
 
 void pman_unregister_obj_event(pman_handle_t handle, lv_obj_t *obj) {
+    (void)handle;
     lv_obj_remove_event_cb(obj, event_callback);
 }
 
@@ -529,8 +540,11 @@ static void open_page(pman_handle_t handle, pman_page_t *page) {
  *
  * @param page
  */
-static void close_page(pman_page_t *page) {
+static void close_page(pman_t *pman, pman_page_t *page) {
     if (page->close) {
         page->close(page->state);
+    }
+    if (pman->close_cb) {
+        pman->close_cb(pman);
     }
 }
