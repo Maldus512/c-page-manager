@@ -6,13 +6,9 @@
 
 
 #define DEFINE_TIMER_WRAPPER(fun)                                                                                      \
-    void pman_timer_##fun(pman_timer_t *timer) {                                                                       \
-        lv_timer_##fun(timer->timer);                                                                                  \
-    }
+    void pman_timer_##fun(pman_timer_t *timer) { lv_timer_##fun(timer->timer); }
 #define DEFINE_TIMER_WRAPPER_ARG(fun, type)                                                                            \
-    void pman_timer_##fun(pman_timer_t *timer, type arg) {                                                             \
-        lv_timer_##fun(timer->timer, arg);                                                                             \
-    }
+    void pman_timer_##fun(pman_timer_t *timer, type arg) { lv_timer_##fun(timer->timer, arg); }
 
 
 
@@ -27,6 +23,12 @@ static void destroy_page(pman_page_t *page);
 static void free_user_data_callback(lv_event_t *event);
 static void event_callback(lv_event_t *event);
 static void timer_callback(lv_timer_t *timer);
+
+#if LVGL_VERSION_MAJOR >= 9
+#define lv_mem_free  lv_free
+#define lv_mem_alloc lv_malloc
+#endif
+
 #endif
 
 
