@@ -24,6 +24,8 @@
 #define PMAN_STACK_MSG_SWAP_EXTRA(page_to_swap, extra_ptr)                                                             \
     ((pman_stack_msg_t){.tag = PMAN_STACK_MSG_TAG_SWAP_EXTRA,                                                          \
                         .as  = {.destination = {.page = page_to_swap, .extra = extra_ptr}}})
+#define PMAN_STACK_MSG_REBASE(page_to_push)                                                                         \
+    ((pman_stack_msg_t){.tag = PMAN_STACK_MSG_TAG_REBASE, .as = {.destination = {.page = page_to_push}}})
 
 
 /**

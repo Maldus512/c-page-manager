@@ -45,7 +45,7 @@ void pman_init(pman_t *pman, void *user_data,
 #ifndef PMAN_EXCLUDE_LVGL
                lv_indev_t *indev,
 #endif
-               pman_user_msg_cb_t user_msg_cb, void (*close_global_cb)(void *, void *)) {
+               pman_user_msg_cb_t user_msg_cb, void (*close_global_cb)(void *handle)) {
 #ifndef PMAN_EXCLUDE_LVGL
     pman->touch_indev = indev;
 #endif
@@ -86,7 +86,7 @@ void pman_swap_page_extra(pman_t *pman, pman_page_t newpage, void *extra) {
     current->extra = extra;
     // Create the newpage
     if (current->create) {
-        current->state = current->create(pman->user_data, current->extra);
+        current->state = current->create(pman, current->extra);
     } else {
         current->state = NULL;
     }
@@ -106,6 +106,13 @@ void pman_swap_page_extra(pman_t *pman, pman_page_t newpage, void *extra) {
  */
 void pman_swap_page(pman_t *pman, pman_page_t newpage) {
     pman_swap_page_extra(pman, newpage, NULL);
+}
+
+
+int pman_get_current_page_id(pman_t *pman) {
+    pman_page_t *current = pman_page_stack_top(&pman->page_stack);
+    assert(current != NULL);
+    return current->id;
 }
 
 
@@ -145,9 +152,19 @@ void pman_reset_to_page_id(pman_t *pman, int id, uint8_t *found) {
 }
 
 
+uint8_t pman_is_current_page_id(pman_t *pman, int id) {
+    pman_page_t *current = pman_page_stack_top(&pman->page_stack);
+    if (current == NULL) {
+        return 0;
+    } else {
+        return current->id == id;
+    }
+}
+
+
 /**
- * @brief Clears the whole stack and adds a new page, passing also the extra argument. All previous pages are closed and
- * destroyed
+ * @brief Clears the whole stack and adds a new page, passing also the extra argument. All previous pages are closed
+ * and destroyed
  *
  * @param pman
  * @param newpage
@@ -190,8 +207,8 @@ void pman_rebase_page(pman_t *pman, pman_page_t newpage) {
 
 
 /**
- * @brief Changes the current page passing also the extra argument, adding it on top of the stack. The previous page is
- * closed.
+ * @brief Changes the current page passing also the extra argument, adding it on top of the stack. The previous page
+ * is closed.
  *
  * @param pman
  * @param newpage
@@ -348,8 +365,8 @@ void pman_event(pman_t *pman, pman_event_t event) {
 
 
 /**
- * @brief Utility function to be assigned to the "destroy" page callback. It clears all page state (attempting to free
- * it)
+ * @brief Utility function to be assigned to the "destroy" page callback. It clears all page state (attempting to
+ * free it)
  *
  * @param state
  * @param extra
@@ -561,7 +578,7 @@ static void open_page(pman_handle_t handle, pman_page_t *page) {
  */
 static void close_page(pman_t *pman, pman_page_t *page) {
     if (pman->close_global_cb != NULL) {
-        pman->close_global_cb(pman->user_data, page->state);
+        pman->close_global_cb(pman);
     }
     if (page->close) {
         page->close(page->state);

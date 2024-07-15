@@ -32,7 +32,7 @@ typedef struct {
     pman_user_msg_cb_t user_msg_cb;
 
     // If present, called every time a page is closed
-    void (*close_global_cb)(void *, void *);
+    void (*close_global_cb)(void *handle);
 
     // User pointer
     void *user_data;
@@ -43,19 +43,21 @@ void pman_init(pman_t *pman, void *user_data,
 #ifndef PMAN_EXCLUDE_LVGL
                lv_indev_t *indev,
 #endif
-               pman_user_msg_cb_t user_msg_cb, void (*close_global_cb)(void *, void *));
-void  pman_change_page(pman_t *pman, pman_page_t page);
-void  pman_change_page_extra(pman_t *pman, pman_page_t newpage, void *extra);
-void  pman_back(pman_t *pman);
-void  pman_rebase_page(pman_t *pman, pman_page_t newpage);
-void  pman_rebase_page_extra(pman_t *pman, pman_page_t newpage, void *extra);
-void  pman_swap_page(pman_t *pman, pman_page_t newpage);
-void  pman_swap_page_extra(pman_t *pman, pman_page_t newpage, void *extra);
-void  pman_reset_to_page_id(pman_t *pman, int id, uint8_t *found);
-void  pman_event(pman_t *pman, pman_event_t event);
-void  pman_destroy_all(void *state, void *extra);
-void  pman_close_all(void *state);
-void *pman_get_user_data(pman_handle_t handle);
+               pman_user_msg_cb_t user_msg_cb, void (*close_global_cb)(void *handle));
+void    pman_change_page(pman_t *pman, pman_page_t page);
+void    pman_change_page_extra(pman_t *pman, pman_page_t newpage, void *extra);
+void    pman_back(pman_t *pman);
+void    pman_rebase_page(pman_t *pman, pman_page_t newpage);
+void    pman_rebase_page_extra(pman_t *pman, pman_page_t newpage, void *extra);
+void    pman_swap_page(pman_t *pman, pman_page_t newpage);
+void    pman_swap_page_extra(pman_t *pman, pman_page_t newpage, void *extra);
+void    pman_reset_to_page_id(pman_t *pman, int id, uint8_t *found);
+void    pman_event(pman_t *pman, pman_event_t event);
+void    pman_destroy_all(void *state, void *extra);
+void    pman_close_all(void *state);
+void   *pman_get_user_data(pman_handle_t handle);
+uint8_t pman_is_current_page_id(pman_t *pman, int id);
+int     pman_get_current_page_id(pman_t *pman);
 #ifndef PMAN_EXCLUDE_LVGL
 void pman_register_obj_event(pman_handle_t handle, lv_obj_t *obj, lv_event_code_t event);
 void pman_unregister_obj_event(lv_obj_t *obj);
