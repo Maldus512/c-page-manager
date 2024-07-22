@@ -501,7 +501,9 @@ static void free_user_data_callback(lv_event_t *event) {
  */
 static void page_subscription_cb(pman_t *pman, pman_event_t event) {
     void *user_msg = pman_process_page_event(pman, event);
-    pman->user_msg_cb(pman, user_msg);
+    if (pman->user_msg_cb) {
+        pman->user_msg_cb(pman, user_msg);
+    }
 }
 
 
