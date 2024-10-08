@@ -1,7 +1,7 @@
 #include <assert.h>
 #include "page_manager_timer.h"
 #include "page_manager.h"
-#include "src/page.h"
+#include "page.h"
 #include "stack.h"
 
 
@@ -426,7 +426,6 @@ DEFINE_TIMER_WRAPPER(resume)
 DEFINE_TIMER_WRAPPER(reset)
 DEFINE_TIMER_WRAPPER(pause)
 DEFINE_TIMER_WRAPPER_ARG(set_period, uint32_t)
-DEFINE_TIMER_WRAPPER_ARG(set_repeat_count, uint32_t)
 #endif
 
 
@@ -530,7 +529,7 @@ static void event_callback(lv_event_t *event) {
  * @param timer
  */
 static void timer_callback(lv_timer_t *timer) {
-    pman_timer_t *pman_timer = timer->user_data;
+    pman_timer_t *pman_timer = lv_timer_get_user_data(timer);
 
     pman_event_t pman_event = {
         .tag = PMAN_EVENT_TAG_TIMER,
@@ -538,11 +537,6 @@ static void timer_callback(lv_timer_t *timer) {
     };
 
     page_subscription_cb(pman_timer->handle, pman_event);
-
-    // If the timer should be destroyed free the accompanying data
-    if (timer->repeat_count == 0) {
-        lv_mem_free(pman_timer);
-    }
 }
 #endif
 
