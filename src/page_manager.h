@@ -76,7 +76,6 @@ void          pman_timer_resume(pman_timer_t *timer);
 void          pman_timer_reset(pman_timer_t *timer);
 void          pman_timer_pause(pman_timer_t *timer);
 void          pman_timer_set_period(pman_timer_t *timer, uint32_t arg);
-void          pman_timer_set_repeat_count(pman_timer_t *timer, uint32_t arg);
 #endif
 
 #endif
