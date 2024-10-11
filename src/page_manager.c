@@ -45,13 +45,15 @@ void pman_init(pman_t *pman, void *user_data,
 #ifndef PMAN_EXCLUDE_LVGL
                lv_indev_t *indev,
 #endif
-               pman_user_msg_cb_t user_msg_cb, void (*close_global_cb)(void *handle)) {
+               pman_user_msg_cb_t user_msg_cb, void (*close_global_cb)(void *handle),
+               uint8_t (*event_global_cb)(void *handle, pman_event_t event)) {
 #ifndef PMAN_EXCLUDE_LVGL
     pman->touch_indev = indev;
 #endif
     pman->user_data       = user_data;
     pman->user_msg_cb     = user_msg_cb;
     pman->close_global_cb = close_global_cb;
+    pman->event_global_cb = event_global_cb;
 
     pman_page_stack_init(&pman->page_stack);
 }
@@ -501,7 +503,15 @@ static void free_user_data_callback(lv_event_t *event) {
  */
 static void page_subscription_cb(pman_t *pman, pman_event_t event) {
     void *user_msg = pman_process_page_event(pman, event);
-    pman->user_msg_cb(pman, user_msg);
+
+    uint8_t override = 0;
+    if (pman->event_global_cb != NULL) {
+        override = pman->event_global_cb(pman, event);
+    }
+
+    if (!override) {
+        pman->user_msg_cb(pman, user_msg);
+    }
 }
 
 

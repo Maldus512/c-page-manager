@@ -34,6 +34,9 @@ typedef struct {
     // If present, called every time a page is closed
     void (*close_global_cb)(void *handle);
 
+    // If present, called every an event is fired
+    uint8_t (*event_global_cb)(void *handle, pman_event_t event);
+
     // User pointer
     void *user_data;
 } pman_t;
@@ -43,7 +46,8 @@ void pman_init(pman_t *pman, void *user_data,
 #ifndef PMAN_EXCLUDE_LVGL
                lv_indev_t *indev,
 #endif
-               pman_user_msg_cb_t user_msg_cb, void (*close_global_cb)(void *handle));
+               pman_user_msg_cb_t user_msg_cb, void (*close_global_cb)(void *handle),
+               uint8_t (*event_global_cb)(void *handle, pman_event_t event));
 void    pman_change_page(pman_t *pman, pman_page_t page);
 void    pman_change_page_extra(pman_t *pman, pman_page_t newpage, void *extra);
 void    pman_back(pman_t *pman);
