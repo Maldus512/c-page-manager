@@ -288,10 +288,6 @@ void *pman_process_page_event(pman_t *pman, pman_event_t event) {
 
     switch (msg.stack_msg.tag) {
         case PMAN_STACK_MSG_TAG_PUSH_PAGE:
-            pman_change_page(pman, *((pman_page_t *)msg.stack_msg.as.destination.page));
-            break;
-
-        case PMAN_STACK_MSG_TAG_PUSH_PAGE_EXTRA:
             pman_change_page_extra(pman, *((pman_page_t *)msg.stack_msg.as.destination.page),
                                    msg.stack_msg.as.destination.extra);
             break;
@@ -305,10 +301,6 @@ void *pman_process_page_event(pman_t *pman, pman_event_t event) {
             break;
 
         case PMAN_STACK_MSG_TAG_SWAP:
-            pman_swap_page(pman, *((pman_page_t *)msg.stack_msg.as.destination.page));
-            break;
-
-        case PMAN_STACK_MSG_TAG_SWAP_EXTRA:
             pman_swap_page_extra(pman, *((pman_page_t *)msg.stack_msg.as.destination.page),
                                  msg.stack_msg.as.destination.extra);
             break;
