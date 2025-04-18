@@ -13,7 +13,7 @@
 #define PMAN_USER_EVENT(ptr) ((pman_event_t){.tag = PMAN_EVENT_TAG_USER, .as = {.user = ptr}})
 
 
-#define PMAN_STACK_MSG_BACK(extra_ptr)         ((pman_stack_msg_t){.tag = PMAN_STACK_MSG_TAG_BACK})
+#define PMAN_STACK_MSG_BACK()                  ((pman_stack_msg_t){.tag = PMAN_STACK_MSG_TAG_BACK})
 #define PMAN_STACK_MSG_PUSH_PAGE(page_to_push) PMAN_STACK_MSG_PUSH_PAGE_EXTRA(page_to_push, NULL)
 #define PMAN_STACK_MSG_PUSH_PAGE_EXTRA(page_to_push, extra_ptr)                                                        \
     ((pman_stack_msg_t){.tag = PMAN_STACK_MSG_TAG_PUSH_PAGE,                                                           \
