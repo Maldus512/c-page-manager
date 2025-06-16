@@ -577,6 +577,6 @@ static void close_page(pman_t *pman, pman_page_t *page) {
         pman->close_global_cb(pman);
     }
     if (page->close) {
-        page->close(page->state);
+        page->close(pman, page->state);
     }
 }

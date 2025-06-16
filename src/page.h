@@ -126,7 +126,7 @@ typedef struct {
     // Called when the page enters view
     void (*open)(pman_handle_t handle, void *state);
     // Called when the page exits view
-    void (*close)(void *state);
+    void (*close)(pman_handle_t handle, void *state);
 
     // Called to process an event
     pman_msg_t (*process_event)(pman_handle_t handle, void *state, pman_event_t event);
